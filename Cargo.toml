@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["David Hacker <dmhacker@protonmail.com>"]
 
 [dependencies]
+num = "0.2"
