@@ -1,5 +1,5 @@
 [package]
-name = "dualec_backdoor"
+name = "dualec_general"
 version = "0.1.0"
 authors = ["David Hacker <dmhacker@protonmail.com>"]
 
