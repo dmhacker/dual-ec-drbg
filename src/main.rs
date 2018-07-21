@@ -1,11 +1,14 @@
 extern crate num;
 
+pub mod math;
+pub mod points;
 pub mod curves;
 
 use curves::Curve;
+use num::bigint::ToBigInt;
 
 fn main() {
-    let p256 = Curve::gen_p256();
-    println!("Hello, world!");
-    println!("{} ... A = {}", p256.name, p256.a);
+    let curve = Curve::gen_p256();
+    let point1 = curve.multiply(&curve.g, &ToBigInt::to_bigint(&5).unwrap()); 
+    println!("{}", point1);
 }
