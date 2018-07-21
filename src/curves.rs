@@ -1,9 +1,9 @@
 use num::bigint::BigInt;
 use num::traits::One;
 use points::CurvePoint;
-use math::mod_inverse;
+use math::{mod_inverse, prime_mod_inverse};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Curve {
     pub name: String,   // Name of the curve
     pub bitsize: u16,   // Level of security offered by the curve 
@@ -18,9 +18,17 @@ impl Curve {
     fn _lambda(&self, p : &CurvePoint, q : &CurvePoint, numer : &BigInt, denom : &BigInt) -> CurvePoint {
         let one : BigInt = One::one();
 
-        let lambda = (numer * mod_inverse(denom, &self.p).unwrap()).modpow(&one, &self.p);
+        let denom_inverse : BigInt;
+        if &self.name[..2] == "P-" {
+            denom_inverse = prime_mod_inverse(denom, &self.p);
+        }
+        else {
+            denom_inverse = mod_inverse(denom, &self.p).unwrap();
+        }
+
+        let lambda = (numer * &denom_inverse).modpow(&one, &self.p);
         let rx = (&lambda * &lambda - &p.x - &q.x).modpow(&one, &self.p);
-        let ry = (lambda * (&p.x - &rx) - &p.y).modpow(&one, &self.p);
+        let ry = (&lambda * (&p.x - &rx) - &p.y).modpow(&one, &self.p);
 
         CurvePoint {
             x: rx,
@@ -56,7 +64,7 @@ impl Curve {
         loop {
             let di = (s >> i) & &one;
             if di == one {
-                r0 = self.add(&r0, &r1);
+                r0 = self.add(&r1, &r0);
                 r1 = self._double(&r1);
             }
             else {
