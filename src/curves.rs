@@ -45,26 +45,23 @@ impl Curve {
     }
 
     pub fn multiply(&self, p : &CurvePoint, s : &BigInt) -> CurvePoint {
-        let mut q = p.clone(); 
-        let mut q0 = true;
+        let mut r0 = p.clone(); 
+        let mut r1 = self._double(&p);
 
         let one : BigInt = One::one();
 
         let m = s.bits();
-        let mut i = m - 1;
+        let mut i = m - 2;
 
         loop {
-            q = self._double(&q);
-
             let di = (s >> i) & &one;
             if di == one {
-                if q0 {
-                    q = p.clone();
-                    q0 = false;
-                }
-                else {
-                    q = self.add(&q, &p);
-                }
+                r0 = self.add(&r0, &r1);
+                r1 = self._double(&r1);
+            }
+            else {
+                r1 = self.add(&r0, &r1);
+                r0 = self._double(&r0);
             }
 
             if i == 0 {
@@ -75,7 +72,7 @@ impl Curve {
             }
         }
 
-        q 
+        r0
     }
 
     pub fn is_on_curve(&self, p : &CurvePoint) -> bool {
