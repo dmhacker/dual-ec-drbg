@@ -1,14 +1,14 @@
 use num::bigint::BigInt;
-use num::traits::Zero;
 use curves::Curve;
 use points::CurvePoint;
+use math::two_pow;
 
 pub struct DualECDRBG {
     pub curve : Curve,
-    pub s : BigInt,
     pub p : CurvePoint,
     pub q : CurvePoint,
-    pub bitmask : BigInt
+    pub s : BigInt,
+    bitmask : BigInt
 }
 
 impl DualECDRBG {
@@ -16,20 +16,12 @@ impl DualECDRBG {
         assert!(curve.is_on_curve(p), "P must be on the curve");
         assert!(curve.is_on_curve(q), "Q must be on the curve");
 
-        let bitsize = curve.bitsize - 16;
-        let mut bitmask : BigInt = Zero::zero();
-
-        for _ in 0..bitsize {
-            bitmask <<= 1;
-            bitmask += 1;
-        }
-
         DualECDRBG {
             curve: curve.clone(),
             s: seed.clone(), 
             p: p.clone(),
             q: q.clone(),
-            bitmask: bitmask,
+            bitmask: two_pow(curve.bitsize - 16) - 1
         }
     }
 

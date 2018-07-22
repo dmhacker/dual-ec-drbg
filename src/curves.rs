@@ -1,7 +1,7 @@
 use num::bigint::BigInt;
 use num::traits::One;
 use points::CurvePoint;
-use math::{mod_inverse, prime_mod_inverse};
+use math::{mod_inverse, prime_mod_inverse, modulo};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Curve {
@@ -16,19 +16,17 @@ pub struct Curve {
 
 impl Curve {
     fn _lambda(&self, p : &CurvePoint, q : &CurvePoint, numer : &BigInt, denom : &BigInt) -> CurvePoint {
-        let one : BigInt = One::one();
-
         let denom_inverse : BigInt;
         if &self.name[..2] == "P-" {
-            denom_inverse = prime_mod_inverse(denom, &self.p);
+            denom_inverse = prime_mod_inverse(denom, &self.p).unwrap();
         }
         else {
             denom_inverse = mod_inverse(denom, &self.p).unwrap();
         }
 
-        let lambda = (numer * &denom_inverse).modpow(&one, &self.p);
-        let rx = (&lambda * &lambda - &p.x - &q.x).modpow(&one, &self.p);
-        let ry = (&lambda * (&p.x - &rx) - &p.y).modpow(&one, &self.p);
+        let lambda = modulo(&(numer * &denom_inverse), &self.p);
+        let rx = modulo(&(&lambda * &lambda - &p.x - &q.x), &self.p);
+        let ry = modulo(&(&lambda * (&p.x - &rx) - &p.y), &self.p);
 
         CurvePoint {
             x: rx,
