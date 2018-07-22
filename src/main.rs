@@ -64,11 +64,11 @@ fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2: &Int) -> Optio
                 let mut sent = false;
                 let mut prefix = thread_id;
                 while prefix < 65536 {
+                    let timestamp = precise_time_s();
+
                     let lost_bits = Int::from(prefix) << (output1.bit_length() as usize);
                     let rqx = lost_bits | output1;
                     let rqy2 = modulo(&(&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b), &curve.p);
-
-                    let mut timestamp = precise_time_s();
                     let result : Option<Int>;
                     if curve.name == "P-256" { 
                         result = p256_mod_sqrt(&rqy2);
@@ -76,9 +76,6 @@ fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2: &Int) -> Optio
                     else { 
                         result = mod_sqrt(&rqy2, &curve.p); 
                     } 
-                    let mut ms = (precise_time_s() - timestamp) * 1000.0;
-                    println!("{} | mod_sqrt took {} ms ... valid? {}", prefix, ms, result.is_some());
-
                     match result {
                         Some(rqy) => {
                             let rq = CurvePoint {
@@ -86,15 +83,8 @@ fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2: &Int) -> Optio
                                 y: rqy
                             };
 
-                            timestamp = precise_time_s();
                             let state_guess = curve.multiply(&rq, d).x;
-                            ms = (precise_time_s() - timestamp) * 1000.0;
-                            println!("{} | drQ multiplication took {} ms", prefix, ms);
-
-                            timestamp = precise_time_s();
                             let output2_guess = curve.multiply(&prng.q, &state_guess).x & &bitmask; 
-                            ms = (precise_time_s() - timestamp) * 1000.0;
-                            println!("{} | sQ multiplication took {} ms", prefix, ms);
 
                             println!("{} | State guess was {}", prefix, state_guess.to_str_radix(16, false));
                             println!("{} | Output guess was {}", prefix, output2_guess.to_str_radix(16, false));
@@ -108,6 +98,8 @@ fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2: &Int) -> Optio
                         },
                         None => () 
                     }
+
+                    println!("{} | Took {} seconds.", prefix, precise_time_s() - timestamp);
                     prefix += num_threads;
                 }            
                 if !sent {
