@@ -103,7 +103,7 @@ fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2: &Int) -> Optio
                         None => () 
                     }
 
-                    println!("{} | Took {} seconds.", prefix, precise_time_s() - timestamp);
+                    println!("{} | Took {} seconds", prefix, precise_time_s() - timestamp);
                     prefix += num_threads;
                 }            
                 if !sent {
