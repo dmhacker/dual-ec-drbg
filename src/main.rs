@@ -1,4 +1,4 @@
-extern crate num;
+extern crate ramp;
 extern crate rand;
 extern crate crossbeam;
 extern crate time;
@@ -10,10 +10,11 @@ pub mod prng;
 
 use curves::Curve;
 use points::CurvePoint;
-use num::bigint::{BigInt, ToBigInt};
-use rand::prelude::random;
+
+use ramp::int::Int;
+use ramp::RandomInt;
 use prng::DualECDRBG;
-use math::{mod_inverse, mod_sqrt, p256_mod_sqrt, two_pow, modulo};
+use math::{mod_inverse, modulo, mod_sqrt, p256_mod_sqrt};
 use std::sync::mpsc;
 use time::precise_time_s;
 
@@ -22,12 +23,11 @@ fn main() {
 
     println!("Curve = {}", curve.name);
 
-    let seed_u64 : u64 = random();
-    let seed = &ToBigInt::to_bigint(&seed_u64).unwrap(); 
+    let seed = rand::thread_rng().gen_uint(256); 
 
     println!("Seed = {}", seed);
 
-    let d = BigInt::parse_bytes(b"10", 10).unwrap();
+    let d = Int::from_str_radix("10000000000000000000000000000", 10).unwrap();
     let q = curve.multiply(&curve.g, &mod_inverse(&d, &curve.n).unwrap());
 
     println!("d = {}", d);
@@ -40,8 +40,8 @@ fn main() {
     let output1 = prng.next();
     let output2 = prng.next();
 
-    println!("Eve observed output 1 {}.", output1.to_str_radix(16));
-    println!("Eve observed output 2 {}.", output2.to_str_radix(16));
+    println!("Eve observed output 1 {}.", output1.to_str_radix(16, false));
+    println!("Eve observed output 2 {}.", output2.to_str_radix(16, false));
     
     match predict(&prng, &d, &output1, &output2) {
         Some(state) => {
@@ -52,7 +52,7 @@ fn main() {
     } 
 }
 
-fn predict(prng : &DualECDRBG, d : &BigInt, output1 : &BigInt, output2: &BigInt) -> Option<BigInt> {
+fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2: &Int) -> Option<Int> {
     let (tx, rx) = mpsc::channel();
     let num_threads = 8;
     crossbeam::scope(|scope| {
@@ -60,31 +60,46 @@ fn predict(prng : &DualECDRBG, d : &BigInt, output1 : &BigInt, output2: &BigInt)
             let tx = mpsc::Sender::clone(&tx);    
             scope.spawn(move || {
                 let curve = &prng.curve;
-                let bitmask = two_pow(curve.bitsize - 16) - 1;
+                let bitmask = Int::from(2).pow(curve.bitsize - 16) - 1;
                 let mut sent = false;
                 let mut prefix = thread_id;
                 while prefix < 65536 {
-                    let adjusted_prefix = ToBigInt::to_bigint(&prefix).unwrap() << output1.bits();
-                    let rqx = adjusted_prefix | output1;
+                    let lost_bits = Int::from(prefix) << (output1.bit_length() as usize);
+                    let rqx = lost_bits | output1;
                     let rqy2 = modulo(&(&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b), &curve.p);
-                    let result : Option<BigInt>;
-                    let timestamp = precise_time_s();
-                    if curve.name == "P-256" {
-                        result = p256_mod_sqrt(&rqy2, &curve.p);
-                    }
-                    else {
-                        result = mod_sqrt(&rqy2, &curve.p);
-                    }
-                    let ms = (precise_time_s() - timestamp) * 1000.0;
+
+                    let mut timestamp = precise_time_s();
+                    let result : Option<Int>;
+                    if curve.name == "P-256" { 
+                        result = p256_mod_sqrt(&rqy2);
+                    } 
+                    else { 
+                        result = mod_sqrt(&rqy2, &curve.p); 
+                    } 
+                    let mut ms = (precise_time_s() - timestamp) * 1000.0;
+                    println!("{} | mod_sqrt took {} ms ... valid? {}", prefix, ms, result.is_some());
+
                     match result {
                         Some(rqy) => {
-                            println!("{} | mod_sqrt took {} ms", prefix, ms);
                             let rq = CurvePoint {
                                 x: rqx,
                                 y: rqy
                             };
+
+                            timestamp = precise_time_s();
                             let state_guess = curve.multiply(&rq, d).x;
-                            let output2_guess = curve.multiply(&prng.q, &state_guess).x & &bitmask;
+                            ms = (precise_time_s() - timestamp) * 1000.0;
+                            println!("{} | drQ multiplication took {} ms", prefix, ms);
+
+                            timestamp = precise_time_s();
+                            let output2_guess = curve.multiply(&prng.q, &state_guess).x & &bitmask; 
+                            ms = (precise_time_s() - timestamp) * 1000.0;
+                            println!("{} | sQ multiplication took {} ms", prefix, ms);
+
+                            println!("{} | State guess was {}", prefix, state_guess.to_str_radix(16, false));
+                            println!("{} | Output guess was {}", prefix, output2_guess.to_str_radix(16, false));
+                            println!("{} | Output truth was {}", prefix, output2.to_str_radix(16, false));
+
                             if &output2_guess == output2 {
                                 tx.send(Some(state_guess)).unwrap();
                                 sent = true;
@@ -114,41 +129,31 @@ fn predict(prng : &DualECDRBG, d : &BigInt, output1 : &BigInt, output2: &BigInt)
 
 #[cfg(test)]
 mod tests {
-    use num::bigint::BigInt;
-    use math::{mod_inverse, prime_mod_inverse, two_pow};
+    use ramp::int::Int; 
+    use math::{mod_inverse, prime_mod_inverse};
 
     #[test]
     fn test_positive_mod_inverse() {
-        let inverse = mod_inverse(&BigInt::parse_bytes(b"4", 10).unwrap(), &BigInt::parse_bytes(b"7", 10).unwrap());
-        assert_eq!(inverse.unwrap(), BigInt::parse_bytes(b"2", 10).unwrap());
+        let inverse = mod_inverse(&Int::from(4), &Int::from(7));
+        assert_eq!(inverse.unwrap(), Int::from(2));
     }
 
     #[test]
     fn test_negative_mod_inverse() {
-        let inverse = mod_inverse(&BigInt::parse_bytes(b"-4", 10).unwrap(), &BigInt::parse_bytes(b"7", 10).unwrap());
-        assert_eq!(inverse.unwrap(), BigInt::parse_bytes(b"5", 10).unwrap());
+        let inverse = mod_inverse(&Int::from(-4), &Int::from(7));
+        assert_eq!(inverse.unwrap(), Int::from(5));
     }
 
     #[test]
     fn test_positive_prime_mod_inverse() {
-        let inverse = prime_mod_inverse(&BigInt::parse_bytes(b"4", 10).unwrap(), &BigInt::parse_bytes(b"7", 10).unwrap());
-        assert_eq!(inverse.unwrap(), BigInt::parse_bytes(b"2", 10).unwrap());
+        let inverse = prime_mod_inverse(&Int::from(4), &Int::from(7));
+        assert_eq!(inverse.unwrap(), Int::from(2));
     }
 
     #[test]
     fn test_negative_prime_mod_inverse() {
-        let inverse = prime_mod_inverse(&BigInt::parse_bytes(b"-4", 10).unwrap(), &BigInt::parse_bytes(b"7", 10).unwrap());
-        assert_eq!(inverse.unwrap(), BigInt::parse_bytes(b"5", 10).unwrap());
-    }
-
-    #[test]
-    fn test_two_pow_one() {
-        assert_eq!(BigInt::from(2), two_pow(1));
-    }
-
-    #[test]
-    fn test_two_pow_ten() {
-        assert_eq!(BigInt::from(1024), two_pow(10));
+        let inverse = prime_mod_inverse(&Int::from(-4), &Int::from(7));
+        assert_eq!(inverse.unwrap(), Int::from(5));
     }
 }
 
