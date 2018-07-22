@@ -19,6 +19,6 @@ impl CurvePoint {
 
 impl Display for CurvePoint {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "({}, {})", self.x, self.y)
+        write!(f, "({}, {})", self.x.to_str_radix(16), self.y.to_str_radix(16))
     }
 }

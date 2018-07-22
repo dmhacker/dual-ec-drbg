@@ -8,7 +8,7 @@ pub struct DualECDRBG {
     pub s : BigInt,
     pub p : CurvePoint,
     pub q : CurvePoint,
-    pub prefix : BigInt
+    pub bitmask : BigInt
 }
 
 impl DualECDRBG {
@@ -16,37 +16,32 @@ impl DualECDRBG {
         assert!(curve.is_on_curve(p), "P must be on the curve");
         assert!(curve.is_on_curve(q), "Q must be on the curve");
 
+        let bitsize = curve.bitsize - 16;
+        let mut bitmask : BigInt = Zero::zero();
+
+        for _ in 0..bitsize {
+            bitmask <<= 1;
+            bitmask += 1;
+        }
+
         DualECDRBG {
             curve: curve.clone(),
             s: seed.clone(), 
             p: p.clone(),
             q: q.clone(),
-            prefix: BigInt::from(0)
+            bitmask: bitmask,
         }
     }
 
     pub fn next(&mut self) -> BigInt {
         let sp = self.curve.multiply(&self.p, &self.s);
-        let r = sp.x;
+        let s = sp.x.clone();
 
-        let rp = self.curve.multiply(&self.p, &r);
-        self.s = rp.x;
+        let s1q = self.curve.multiply(&self.q, &s);
+        let r = s1q.x.clone();
 
-        let rq = self.curve.multiply(&self.q, &r);
-        let rqx = rq.x;
+        self.s = s.clone();
 
-        let b = rqx.bits();
-        let mut k : BigInt = Zero::zero();
-        let mut i = 0;
-
-        while i < b - 16 {
-            k <<= 1;
-            k += 1;
-            i += 1;
-        }
-
-        self.prefix = &rqx >> (b - 16);
-
-        rqx & k
+        r & &self.bitmask
     }
 }

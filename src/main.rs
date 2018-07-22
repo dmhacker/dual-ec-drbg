@@ -16,50 +16,61 @@ use math::{mod_inverse, tonelli_shanks};
 
 fn main() {
     let curve = Curve::gen_p256();
+
     println!("Curve = {}", curve.name);
 
     let seed_u64 : u64 = random();
     let seed = &ToBigInt::to_bigint(&seed_u64).unwrap(); 
-    println!("Seed (s) = {}", seed);
 
-    let backdoor = BigInt::parse_bytes(b"10", 10).unwrap();
-    println!("Backdoor (e) = {}", backdoor);
+    println!("Seed = {}", seed);
 
-    let q = curve.multiply(&curve.g, &mod_inverse(&backdoor, &curve.n).unwrap());
-    println!("P = {}", curve.g);
+    let d = BigInt::parse_bytes(b"10", 10).unwrap();
+    let q = curve.multiply(&curve.g, &mod_inverse(&d, &curve.n).unwrap());
+
+    println!("d = {}", d);
     println!("Q = {}", q);
-    println!("eQ = {}", curve.multiply(&q, &backdoor));
+    println!("dQ = {}", curve.multiply(&q, &d));
+    println!("P = {}\n", curve.g);
 
     let mut prng = DualECDRBG::new(&curve, &seed, &curve.g, &q);
   
-    let output = prng.next();
-    println!("\nEve observed output {}.", output);
+    let output1 = prng.next();
+    let output2 = prng.next();
 
-    let mut prefix : BigInt = prng.prefix.clone();
-    let mut rq = CurvePoint::origin(); 
-    let mut rq_found = false;
-    while prefix < BigInt::from(65536) {
-        let rqx = (ToBigInt::to_bigint(&prefix).unwrap() << output.bits()) + &output;
-        let ysq = (&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b).modpow(&One::one(), &curve.p);
-        match tonelli_shanks(&ysq, &curve.p) {
+    println!("Eve observed output 1 {}.", output1.to_str_radix(16));
+    println!("Eve observed output 2 {}.", output2.to_str_radix(16));
+
+    let mut state = BigInt::from(0); 
+    let mut state_found = false;
+
+    let two = BigInt::from(2);
+
+    for prefix in 0..65536 {
+        let rqx = (ToBigInt::to_bigint(&prefix).unwrap() << output1.bits()) | &output1;
+        let rqy2 = (&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b).modpow(&One::one(), &curve.p);
+        println!("{}| {}", prefix, rqx.to_str_radix(16));
+        match tonelli_shanks(&rqy2, &curve.p) {
             Some(rqy) => {
-                if &ysq == &rqy.modpow(&BigInt::from(2), &curve.p) {
-                    rq = CurvePoint {
+                if &rqy2 == &rqy.modpow(&two, &curve.p) {
+                    let rq = CurvePoint {
                         x: rqx,
                         y: rqy
                     };
-                    rq_found = true;
-                    break;
+                    let state_guess = curve.multiply(&rq, &d).x;
+                    let output2_guess = curve.multiply(&q, &state_guess).x & &prng.bitmask;
+                    if output2_guess == output2 {
+                        state = state_guess;
+                        state_found = true;
+                        break;
+                    }
                 }
             },
-            None => println!("Prefix {} failed.", prefix)
+            None => () 
         }
-        prefix += 1
     }
 
-    if rq_found {
-        let s = curve.multiply(&rq, &backdoor);
-        println!("Eve guessed state {}.", s.x);
+    if state_found {
+        println!("Eve guessed state {}.", &state);
         println!("Actual state is {}.", &prng.s);
     } 
     else {
