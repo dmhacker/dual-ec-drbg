@@ -6,3 +6,4 @@ authors = ["David Hacker <dmhacker@protonmail.com>"]
 [dependencies]
 num = "0.2"
 rand = "0.5"
+crossbeam = "0.3.2"
