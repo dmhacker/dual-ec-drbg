@@ -7,4 +7,5 @@ authors = ["David Hacker <dmhacker@protonmail.com>"]
 ramp = "0.5"
 rand = "0.5"
 crossbeam = "0.3.2"
+num_cpus = "1.0"
 time = "0.1"

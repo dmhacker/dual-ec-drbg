@@ -2,6 +2,7 @@ extern crate ramp;
 extern crate rand;
 extern crate crossbeam;
 extern crate time;
+extern crate num_cpus;
 
 pub mod math;
 pub mod points;
@@ -54,7 +55,10 @@ fn main() {
 
 fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2: &Int) -> Option<Int> {
     let (tx, rx) = mpsc::channel();
-    let num_threads = 8;
+    let num_threads = num_cpus::get();
+
+    println!("Recovering lost bits using {} threads ...", num_threads);
+
     crossbeam::scope(|scope| {
         for thread_id in 0..num_threads {
             let tx = mpsc::Sender::clone(&tx);    
