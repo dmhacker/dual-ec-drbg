@@ -23,13 +23,13 @@ fn main() {
     
     let curve = Curve::gen_p256();
     let seed = rand::thread_rng().gen_uint(curve.bitsize); 
-    let d = Int::from_str_radix("fffffffffffffff", 16).unwrap();
+    let d = Int::from_str_radix("ffffff", 16).unwrap();
     let q = curve.multiply(&curve.g, &mod_inverse(&d, &curve.n).unwrap());
     let mut prng = DualECDRBG::new(&curve, &seed, &curve.g, &q);
 
     window.printw(format!("Curve = \t{}\n", curve.name));
     window.printw(format!("Seed = \t\t{}\n", seed.to_str_radix(16, false)));
-    window.printw(format!("d = \t\t{}\n", d));
+    window.printw(format!("d = \t\t{}\n", d.to_str_radix(16, false)));
     window.printw(format!("Q = \t\t{}\n", q));
     window.printw(format!("dQ = \t\t{}\n", curve.multiply(&q, &d)));
     window.printw(format!("P = \t\t{}\n", curve.g));
