@@ -1,6 +1,6 @@
 use ramp::int::Int;
 use points::CurvePoint;
-use math::{mod_inverse, prime_mod_inverse, modulo};
+use math::{prime_mod_inverse, modulo};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Curve {
@@ -16,13 +16,8 @@ pub struct Curve {
 impl Curve {
     #[inline]
     fn _lambda(&self, p : &CurvePoint, q : &CurvePoint, numer : &Int, denom : &Int) -> CurvePoint {
-        let denom_inverse : Int;
-        if &self.name[..2] == "P-" {
-            denom_inverse = prime_mod_inverse(denom, &self.p).unwrap();
-        }
-        else {
-            denom_inverse = mod_inverse(denom, &self.p).unwrap();
-        }
+        // The curve has to have a prime modulus as per NIST specifications
+        let denom_inverse = prime_mod_inverse(denom, &self.p).unwrap();
 
         let lambda = modulo(&(numer * &denom_inverse), &self.p);
         let rx = modulo(&(&lambda * &lambda - &p.x - &q.x), &self.p);
@@ -51,21 +46,15 @@ impl Curve {
     }
 
     pub fn multiply(&self, p : &CurvePoint, s : &Int) -> CurvePoint {
-        let mut r0 = p.clone(); 
-        let mut r1 = self._double(&p);
+        let mut q = p.clone(); 
 
         let m = s.bit_length() as usize;
         let mut i = m - 2;
 
         loop {
-            let di = (s >> i) & 1;
-            if di == 1 {
-                r0 = self.add(&r1, &r0);
-                r1 = self._double(&r1);
-            }
-            else {
-                r1 = self.add(&r0, &r1);
-                r0 = self._double(&r0);
+            q = self._double(&q);
+            if s.bit(i as u32) { 
+                q = self.add(&q, &p);
             }
 
             if i == 0 {
@@ -76,7 +65,7 @@ impl Curve {
             }
         }
 
-        r0
+        q
     }
 
     pub fn is_on_curve(&self, p : &CurvePoint) -> bool {

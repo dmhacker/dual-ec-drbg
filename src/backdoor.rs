@@ -54,10 +54,6 @@ pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, win
                             let state_guess = curve.multiply(&rq, d).x;
                             let output2_guess = curve.multiply(&prng.q, &state_guess).x & &bitmask; 
 
-                            try_and_discard!(tx.send((false, None, format!("{} | State guess was {}\n", prefix, state_guess.to_str_radix(16, false)))));
-                            try_and_discard!(tx.send((false, None, format!("{} | Output guess was {}\n", prefix, output2_guess.to_str_radix(16, false)))));
-                            try_and_discard!(tx.send((false, None, format!("{} | Output truth was {}\n", prefix, output2.to_str_radix(16, false)))));
-
                             if &output2_guess == output2 {
                                 try_and_discard!(tx.send((true, Some(state_guess), "".to_string())));
                                 sent = true;
