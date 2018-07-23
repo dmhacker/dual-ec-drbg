@@ -16,7 +16,7 @@ use ramp::RandomInt;
 use curves::Curve;
 use backdoor::predict;
 use prng::DualECDRBG;
-use math::mod_inverse; 
+use math::mod_invert; 
 
 fn main() {
     let window = pancurses::initscr();
@@ -24,7 +24,7 @@ fn main() {
     let curve = Curve::gen_p256();
     let seed = rand::thread_rng().gen_uint(curve.bitsize); 
     let d = Int::from_str_radix("ffffff", 16).unwrap();
-    let q = curve.multiply(&curve.g, &mod_inverse(&d, &curve.n).unwrap());
+    let q = curve.multiply(&curve.g, &mod_invert(&d, &curve.n).unwrap());
     let mut prng = DualECDRBG::new(&curve, &seed, &curve.g, &q);
 
     window.printw(format!("Curve = \t{}\n", curve.name));
@@ -83,29 +83,29 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use ramp::int::Int; 
-    use math::{mod_inverse, prime_mod_inverse};
+    use math::{mod_invert, prime_mod_invert};
 
     #[test]
-    fn test_positive_mod_inverse() {
-        let inverse = mod_inverse(&Int::from(4), &Int::from(7));
+    fn test_positive_mod_invert() {
+        let inverse = mod_invert(&Int::from(4), &Int::from(7));
         assert_eq!(inverse.unwrap(), Int::from(2));
     }
 
     #[test]
-    fn test_negative_mod_inverse() {
-        let inverse = mod_inverse(&Int::from(-4), &Int::from(7));
+    fn test_negative_mod_invert() {
+        let inverse = mod_invert(&Int::from(-4), &Int::from(7));
         assert_eq!(inverse.unwrap(), Int::from(5));
     }
 
     #[test]
-    fn test_positive_prime_mod_inverse() {
-        let inverse = prime_mod_inverse(&Int::from(4), &Int::from(7));
+    fn test_positive_prime_mod_invert() {
+        let inverse = prime_mod_invert(&Int::from(4), &Int::from(7));
         assert_eq!(inverse.unwrap(), Int::from(2));
     }
 
     #[test]
-    fn test_negative_prime_mod_inverse() {
-        let inverse = prime_mod_inverse(&Int::from(-4), &Int::from(7));
+    fn test_negative_prime_mod_invert() {
+        let inverse = prime_mod_invert(&Int::from(-4), &Int::from(7));
         assert_eq!(inverse.unwrap(), Int::from(5));
     }
 }

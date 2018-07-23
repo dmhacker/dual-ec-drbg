@@ -8,7 +8,7 @@ pub fn modulo(a : &Int, n : &Int) -> Int {
     r
 }
 
-pub fn mod_inverse(a : &Int, n: &Int) -> Option<Int> {
+pub fn mod_invert(a : &Int, n: &Int) -> Option<Int> {
     let mut u1 = Int::one();
     let mut u3 = (*a).clone();
     let mut v1 = Int::zero();
@@ -43,7 +43,7 @@ pub fn mod_inverse(a : &Int, n: &Int) -> Option<Int> {
     Some(inv)
 }
 
-pub fn prime_mod_inverse(a: &Int, n : &Int) -> Option<Int> {
+pub fn prime_mod_invert(a: &Int, n : &Int) -> Option<Int> {
     // Function only works when n (the modulus) is prime 
     let mut r = a.pow_mod(&(n - 2), &n);
     if r < 0 {
