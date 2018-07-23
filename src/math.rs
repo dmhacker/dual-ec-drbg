@@ -23,9 +23,9 @@ pub fn mod_invert(a : &Int, n: &Int) -> Option<Int> {
         let t1 = u1 + &q * &v1;
 
         u1 = v1.clone();
-        v1 = t1.clone();
+        v1 = t1;
         u3 = v3.clone();
-        v3 = t3.clone();
+        v3 = t3;
 
         iter = !iter;
     }
@@ -78,7 +78,7 @@ pub fn mod_sqrt(n : &Int, p : &Int) -> Option<Int> {
     let mut c = z.pow_mod(&q, p);
     let mut r = n.pow_mod(&((&q + 1) >> (1 as usize)), p);
     let mut t = n.pow_mod(&q, p);
-    let mut m = ss.clone();
+    let mut m = ss;
 
     loop {
         if t == 1 {
