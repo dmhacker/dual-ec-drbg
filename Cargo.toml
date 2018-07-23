@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["David Hacker <dmhacker@protonmail.com>"]
 
 [dependencies]
+pancurses = "0.16"
 ramp = "0.5"
 rand = "0.5"
 crossbeam = "0.3.2"

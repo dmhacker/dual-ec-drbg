@@ -1,7 +1,11 @@
 use ramp::int::Int;
 
-pub fn modulo(a : &Int, m : &Int) -> Int {
-    a.pow_mod(&Int::one(), m)
+pub fn modulo(a : &Int, n : &Int) -> Int {
+    let mut r = a.pow_mod(&Int::one(), n);
+    if r < 0 {
+        r += n;
+    }
+    r
 }
 
 pub fn mod_inverse(a : &Int, n: &Int) -> Option<Int> {
@@ -41,7 +45,11 @@ pub fn mod_inverse(a : &Int, n: &Int) -> Option<Int> {
 
 pub fn prime_mod_inverse(a: &Int, n : &Int) -> Option<Int> {
     // Function only works when n (the modulus) is prime 
-    Some(a.pow_mod(&(n - 2), &n))
+    let mut r = a.pow_mod(&(n - 2), &n);
+    if r < 0 {
+        r += n;
+    }
+    Some(r)
 }
 
 pub fn mod_sqrt(n : &Int, p : &Int) -> Option<Int> {
