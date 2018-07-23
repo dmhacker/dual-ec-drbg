@@ -21,6 +21,13 @@ use std::sync::mpsc;
 use time::precise_time_s;
 use pancurses::{initscr, endwin, Window};
 
+macro_rules! try_and_discard {
+    ($e:expr) => (match $e {
+        Ok(_) => (),
+        Err(_) => return
+    });
+}
+
 fn main() {
     let window = initscr();
     
@@ -52,8 +59,8 @@ fn main() {
     let (my, mx) = window.get_max_yx();
     let (cy, cx) = window.get_cur_yx();
 
-    let nlines = (my - cy) / 2 - 1;
-    let begy = (my + cy) / 2;
+    let begy = cy + 7; 
+    let nlines = my - begy;
     window.mv(begy - 1, cx);
     window.hline('-', 10000);
     window.mv(cy, cx);
@@ -63,30 +70,36 @@ fn main() {
     subwindow.setscrreg(0, nlines - 1);
     subwindow.scrollok(true);
 
-    match predict(&prng, &d, &output1, &output2, &subwindow) {
+    let timestamp = precise_time_s();
+    let prediction = predict(&prng, &d, &output1, &output2, &subwindow);
+    window.printw(format!("Eve spent {} minutes calculating Alice's state.\n", (precise_time_s() - timestamp) / 60.0));
+
+    match prediction {
         Some(state) => {
-            window.printw(format!("Eve guessed state {}.\n", &state));
-            window.printw(format!("Alice's actual state is {}.\n", &prng.s));
+            window.printw(format!("Eve guessed state {}.\n", &state.to_str_radix(16, false)));
+            window.printw(format!("Alice's actual state is {}.\n", &prng.s.to_str_radix(16, false)));
         },
         None => {
-            window.printw(format!("Eve was not able to guess Alice's state this time.\n")) ;
+            window.printw(format!("Eve was not able to guess Alice's state.\n")) ;
         }
     } 
 
+    window.printw("\nPress any key to exit.\n");
     window.getch();
+
     endwin();
 }
 
 fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, window : &Window) -> Option<Int> {
-    let (tx, rx) = mpsc::channel();
-    let num_threads = num_cpus::get();
-
-    window.printw(format!("Recovering lost bits using {} threads ...\n", num_threads));
-    window.refresh();
-
     crossbeam::scope(|scope| {
+        let (tx, rx) = mpsc::channel();
+        let num_threads = num_cpus::get();
+
+        window.printw(format!("Recovering lost bits using {} threads ...\n", num_threads));
+        window.refresh();
+
         for thread_id in 0..num_threads {
-            let tx = mpsc::Sender::clone(&tx);    
+            let tx = tx.clone(); 
             scope.spawn(move || {
                 let curve = &prng.curve;
                 let bitmask = Int::from(2).pow(curve.bitsize - 16) - 1;
@@ -98,7 +111,7 @@ fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, window 
                     let lost_bits = Int::from(prefix) << (output1.bit_length() as usize);
                     let rqx = lost_bits | output1;
                     let rqy2 = modulo(&(&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b), &curve.p);
-                    let result : Option<Int>;
+                        let result : Option<Int>;
                     if curve.name == "P-256" { 
                         result = p256_mod_sqrt(&rqy2);
                     } 
@@ -115,12 +128,12 @@ fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, window 
                             let state_guess = curve.multiply(&rq, d).x;
                             let output2_guess = curve.multiply(&prng.q, &state_guess).x & &bitmask; 
 
-                            tx.send((false, None, format!("{} | State guess was {}\n", prefix, state_guess.to_str_radix(16, false)))).unwrap();
-                            tx.send((false, None, format!("{} | Output guess was {}\n", prefix, output2_guess.to_str_radix(16, false)))).unwrap();
-                            tx.send((false, None, format!("{} | Output truth was {}\n", prefix, output2.to_str_radix(16, false)))).unwrap();
+                            try_and_discard!(tx.send((false, None, format!("{} | State guess was {}\n", prefix, state_guess.to_str_radix(16, false)))));
+                            try_and_discard!(tx.send((false, None, format!("{} | Output guess was {}\n", prefix, output2_guess.to_str_radix(16, false)))));
+                            try_and_discard!(tx.send((false, None, format!("{} | Output truth was {}\n", prefix, output2.to_str_radix(16, false)))));
 
                             if &output2_guess == output2 {
-                                tx.send((true, Some(state_guess), "".to_string())).unwrap();
+                                try_and_discard!(tx.send((true, Some(state_guess), "".to_string())));
                                 sent = true;
                                 break;
                             }
@@ -128,33 +141,35 @@ fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, window 
                         None => () 
                     }
 
-                    tx.send((false, None, format!("{} | Took {} seconds\n", prefix, precise_time_s() - timestamp))).unwrap();
+                    try_and_discard!(tx.send((false, None, format!("{} | Took {} seconds\n", prefix, precise_time_s() - timestamp))));
 
                     prefix += num_threads;
                 }            
                 if !sent {
-                    tx.send((true, None, "".to_string())).unwrap(); 
+                    try_and_discard!(tx.send((true, None, "".to_string())));
                 }
             });
         }
-    });
-
-    let mut threads_finished = 0;
-    while threads_finished < num_threads {
-        let (is_result, result, message) = rx.recv().unwrap();
-        if is_result {
-            match result {
-                Some(ret) => return Some(ret),
-                None => threads_finished += 1
+        let mut threads_finished = 0;
+        while threads_finished < num_threads {
+            match rx.recv() {
+                Ok((is_result, result, message)) => {
+                    if is_result {
+                        match result {
+                            Some(ret) => return Some(ret),
+                            None => threads_finished += 1
+                        }
+                    }
+                    else {
+                        window.printw(message);
+                        window.refresh();
+                    }
+                },
+                _ => ()
             }
         }
-        else {
-            window.printw(message);
-            window.refresh();
-        }
-    }
-
-    None
+        None
+    })
 }
 
 #[cfg(test)]
