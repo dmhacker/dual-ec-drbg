@@ -57,7 +57,7 @@ fn main() {
     window.refresh();
 
     let subwindow = window.derwin(nlines, mx, begy, cx).unwrap();
-    subwindow.setscrreg(0, nlines - 1);
+    subwindow.setscrreg(0, nlines);
     subwindow.scrollok(true);
 
     let timestamp = time::precise_time_s();
