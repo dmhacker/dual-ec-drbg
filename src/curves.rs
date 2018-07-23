@@ -14,6 +14,7 @@ pub struct Curve {
 }
 
 impl Curve {
+    #[inline]
     fn _lambda(&self, p : &CurvePoint, q : &CurvePoint, numer : &Int, denom : &Int) -> CurvePoint {
         let denom_inverse : Int;
         if &self.name[..2] == "P-" {
