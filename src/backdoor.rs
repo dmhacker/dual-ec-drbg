@@ -17,7 +17,6 @@ macro_rules! try_and_discard {
 }
     
 pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, window : &Window) -> Option<Int> {
-
     crossbeam_scope(|scope| {
         let (tx, rx) = mpsc::channel();
         let num_threads = num_cpus_get();
@@ -30,7 +29,6 @@ pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, win
             let output1 = output1.clone();
             scope.spawn(move || {
                 let curve = &prng.curve;
-                let bitmask = Int::from(2).pow(curve.bitsize - 16) - 1;
                 let mut sent = false;
                 let mut prefix = thread_id;
                 while prefix < 65536 {
@@ -54,7 +52,7 @@ pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, win
                             };
 
                             let state_guess = curve.multiply(&rq, d).x;
-                            let output2_guess = curve.multiply(&prng.q, &state_guess).x & &bitmask; 
+                            let output2_guess = curve.multiply(&prng.q, &state_guess).x & &prng.outmask; 
 
                             if &output2_guess == output2 {
                                 try_and_discard!(tx.send((true, Some(state_guess), "".to_string())));
@@ -65,7 +63,7 @@ pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, win
                         None => () 
                     }
 
-                    try_and_discard!(tx.send((false, None, format!("{} | Took {} seconds\n", prefix, precise_time_s() - timestamp))));
+                    try_and_discard!(tx.send((false, None, format!("{:4x} ({:5}) | Took {} seconds\n", prefix, prefix, precise_time_s() - timestamp))));
 
                     prefix += num_threads;
                 }            

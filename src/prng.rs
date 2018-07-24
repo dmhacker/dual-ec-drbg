@@ -6,10 +6,10 @@ use pancurses::Window;
 pub struct DualECDRBG {
     pub curve : Curve,
     pub outsize : usize, 
+    pub outmask : Int,
     pub p : CurvePoint,
     pub q : CurvePoint,
-    state : Int,
-    bitmask : Int
+    state : Int
 }
 
 impl DualECDRBG {
@@ -22,10 +22,10 @@ impl DualECDRBG {
         DualECDRBG {
             curve: curve.clone(),
             outsize: outsize,
+            outmask: Int::from(2).pow(outsize) - 1,
             p: p.clone(),
             q: q.clone(),
-            state: seed.clone(), 
-            bitmask: Int::from(2).pow(outsize) - 1
+            state: seed.clone() 
         }
     }
 
@@ -38,7 +38,7 @@ impl DualECDRBG {
 
         self.state = s;
 
-        r & &self.bitmask
+        r & &self.outmask
     }
 
     pub fn print_state(&self, prefix : &str, suffix : &str, window : Option<&Window>) {
