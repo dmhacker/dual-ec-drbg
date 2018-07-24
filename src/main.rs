@@ -4,6 +4,7 @@ extern crate crossbeam;
 extern crate time;
 extern crate num_cpus;
 extern crate pancurses;
+extern crate argparse;
 
 pub mod math;
 pub mod points;
@@ -17,13 +18,30 @@ use curves::Curve;
 use backdoor::predict;
 use prng::DualECDRBG;
 use math::mod_invert; 
+use argparse::{ArgumentParser, Store};
 
 fn main() {
-    let window = pancurses::initscr();
+    // Default backdoor is the 100th number in the Fibonacci sequence
+    let mut d_str = "1333db76a7c594bfc3".to_string(); 
+    {  
+        let mut parser = ArgumentParser::new();
+        parser.set_description("Interactive proof-of-concept of the Dual_EC_DRBG backdoor");
+        parser.refer(&mut d_str)
+            .add_option(&["--backdoor"], Store,
+            "Backdoor to use (in hexadecimal)");
+        parser.parse_args_or_exit();
+    }
+
+    let d = Int::from_str_radix(&d_str, 16).unwrap();
+    if d < 2 {
+        eprintln!("Backdoor must be greater than 2.");
+        return;
+    }
     
+    let window = pancurses::initscr();
+
     let curve = Curve::gen_p256();
     let seed = rand::thread_rng().gen_uint(curve.bitsize); 
-    let d = Int::from_str_radix("ffffff", 16).unwrap();
     let q = curve.multiply(&curve.g, &mod_invert(&d, &curve.n).unwrap());
     let mut prng = DualECDRBG::new(&curve, &seed, &curve.g, &q);
 
