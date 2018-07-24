@@ -82,8 +82,11 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use rand::thread_rng;
     use ramp::int::Int; 
-    use math::{mod_invert, prime_mod_invert};
+    use ramp::RandomInt;
+    use math::mod_invert;
+    use curves::Curve;
 
     #[test]
     fn test_positive_mod_invert() {
@@ -98,15 +101,13 @@ mod tests {
     }
 
     #[test]
-    fn test_positive_prime_mod_invert() {
-        let inverse = prime_mod_invert(&Int::from(4), &Int::from(7));
-        assert_eq!(inverse.unwrap(), Int::from(2));
-    }
-
-    #[test]
-    fn test_negative_prime_mod_invert() {
-        let inverse = prime_mod_invert(&Int::from(-4), &Int::from(7));
-        assert_eq!(inverse.unwrap(), Int::from(5));
+    fn test_point_multiplication() {
+        let curve = Curve::gen_p256();
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let p = curve.multiply(&curve.g, &rng.gen_uint(curve.bitsize));
+            assert!(curve.is_on_curve(&p), format!("{} is not on the {} curve.", p, curve.name));
+        }
     }
 }
 

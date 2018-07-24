@@ -9,47 +9,40 @@ pub fn modulo(a : &Int, n : &Int) -> Int {
 }
 
 pub fn mod_invert(a : &Int, n: &Int) -> Option<Int> {
-    let mut u1 = Int::one();
-    let mut u3 = (*a).clone();
-    let mut v1 = Int::zero();
-    let mut v3 = (*n).clone();
+    let b = if a < &0 {
+        n + a
+    } else {
+        a.clone()
+    };
 
-    let mut iter = true;
+    let mut t = Int::zero();
+    let mut newt = Int::one();
+    let mut r = n.clone();
+    let mut newr = b;
 
-    while v3 != Int::zero()
-    {
-        let q = &u3 / &v3;
-        let t3 = u3 % &v3;
-        let t1 = u1 + &q * &v1;
+    let mut tmp : Int;
 
-        u1 = v1.clone();
-        v1 = t1;
-        u3 = v3.clone();
-        v3 = t3;
+    while newr != 0 {
+        let quot = &r / &newr; 
 
-        iter = !iter;
+        tmp = t;
+        t = newt.clone();
+        newt = tmp - &quot * &newt;
+
+        tmp = r;
+        r = newr.clone();
+        newr = tmp - &quot * &newr;
     }
 
-    if u3 != Int::one() {
+    if r > 1 {
         return None;
     }
 
-    let inv = if iter == false {
-        n - u1
-    } else {
-        u1
-    };
-
-    Some(inv)
-}
-
-pub fn prime_mod_invert(a: &Int, n : &Int) -> Option<Int> {
-    // Function only works when n (the modulus) is prime 
-    let mut r = a.pow_mod(&(n - 2), &n);
-    if r < 0 {
-        r += n;
+    if t < 0 {
+        t += n;
     }
-    Some(r)
+
+    Some(t)
 }
 
 pub fn mod_sqrt(n : &Int, p : &Int) -> Option<Int> {
