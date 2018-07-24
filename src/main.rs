@@ -66,14 +66,14 @@ fn main() {
 
     match prediction {
         Some(state) => {
-            window.printw(format!("Eve guessed state {}.\n", &state.to_str_radix(16, false)));
-            window.printw(format!("Alice's actual state is {}.\n", &prng.s.to_str_radix(16, false)));
+            window.printw(format!("Eve guessed Alice's state as {}.\n", &state.to_str_radix(16, false)));
         },
         None => {
             window.printw(format!("Eve was not able to guess Alice's state.\n")) ;
         }
     } 
 
+    prng.print_state(&"Alice's actual state is ", &".\n", Some(&window));
     window.printw("\nPress any key to exit.\n");
     window.getch();
 

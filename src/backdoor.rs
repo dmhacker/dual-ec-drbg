@@ -15,8 +15,9 @@ macro_rules! try_and_discard {
         Err(_) => ()
     });
 }
-
+    
 pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, window : &Window) -> Option<Int> {
+
     crossbeam_scope(|scope| {
         let (tx, rx) = mpsc::channel();
         let num_threads = num_cpus_get();
@@ -26,6 +27,7 @@ pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, win
 
         for thread_id in 0..num_threads {
             let tx = tx.clone(); 
+            let output1 = output1.clone();
             scope.spawn(move || {
                 let curve = &prng.curve;
                 let bitmask = Int::from(2).pow(curve.bitsize - 16) - 1;
@@ -33,17 +35,17 @@ pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, win
                 let mut prefix = thread_id;
                 while prefix < 65536 {
                     let timestamp = precise_time_s();
-
-                    let lost_bits = Int::from(prefix) << (output1.bit_length() as usize);
-                    let rqx = lost_bits | output1;
+                    let lost_bits = Int::from(prefix) << prng.outsize;
+                    let rqx = lost_bits | &output1; 
                     let rqy2 = modulo(&(&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b), &curve.p);
-                        let result : Option<Int>;
+                    let result : Option<Int>;
                     if curve.name == "P-256" { 
                         result = p256_mod_sqrt(&rqy2);
                     } 
                     else { 
                         result = mod_sqrt(&rqy2, &curve.p); 
                     } 
+
                     match result {
                         Some(rqy) => {
                             let rq = CurvePoint {
