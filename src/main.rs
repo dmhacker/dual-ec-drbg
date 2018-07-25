@@ -21,27 +21,53 @@ use math::mod_invert;
 use argparse::{ArgumentParser, Store};
 
 fn main() {
-    // Default backdoor is the 100th number in the Fibonacci sequence
-    let mut d_str = "1333db76a7c594bfc3".to_string(); 
+    let mut d_str = "".to_string(); 
+    let mut curve_str = "P-256".to_string();
     {  
         let mut parser = ArgumentParser::new();
         parser.set_description("Interactive proof-of-concept of the Dual_EC_DRBG backdoor");
         parser.refer(&mut d_str)
             .add_option(&["--backdoor"], Store,
-            "Backdoor to use (in hexadecimal)");
+            "Backdoor (in decimal)");
+        parser.refer(&mut curve_str)
+            .add_option(&["--curve"], Store,
+            "NIST-standard curve type");
         parser.parse_args_or_exit();
     }
 
-    let d = Int::from_str_radix(&d_str, 16).unwrap();
-    if d < 2 {
-        eprintln!("Backdoor must be greater than 2.");
+    let mut seed_rng = rand::thread_rng();
+
+    let curve : Curve;
+    if curve_str == "P-256" {
+        curve = Curve::gen_p256();
+    } 
+    else if curve_str == "P-384" {
+        curve = Curve::gen_p384();
+    } 
+    else if curve_str == "P-521" {
+        curve = Curve::gen_p521();
+    } 
+    else {
+        eprintln!("Valid curves are P-256, P-384, P-521.");
         return;
     }
+
+    let d : Int;
+    if d_str == "" {
+        d = seed_rng.gen_uint(curve.bitsize); 
+    } 
+    else {
+        d = Int::from_str_radix(&d_str, 10).unwrap();
+        if d < 2 {
+            eprintln!("Backdoor must be greater than 2.");
+            return;
+        }
+    }
     
+
     let window = pancurses::initscr();
 
-    let curve = Curve::gen_p256();
-    let seed = rand::thread_rng().gen_uint(curve.bitsize); 
+    let seed = seed_rng.gen_uint(curve.bitsize); 
     let q = curve.multiply(&curve.g, &mod_invert(&d, &curve.n).unwrap());
     let mut prng = DualECDRBG::new(&curve, &seed, &curve.g, &q);
 
