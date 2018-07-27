@@ -1,6 +1,6 @@
 use ramp::int::Int;
 use points::CurvePoint;
-use math::{mod_invert, modulo};
+use math::ModExtensions;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Curve {
@@ -16,11 +16,11 @@ pub struct Curve {
 impl Curve {
     #[inline]
     fn _lambda(&self, p : &CurvePoint, q : &CurvePoint, numer : &Int, denom : &Int) -> CurvePoint {
-        let denom_inverse = mod_invert(denom, &self.p).unwrap();
+        let denom_inverse = denom.mod_invert(&self.p).unwrap();
 
-        let lambda = modulo(&(numer * &denom_inverse), &self.p);
-        let rx = modulo(&(&lambda * &lambda - &p.x - &q.x), &self.p);
-        let ry = modulo(&(&lambda * (&p.x - &rx) - &p.y), &self.p);
+        let lambda = (numer * &denom_inverse).modulo(&self.p);
+        let rx = (&lambda * &lambda - &p.x - &q.x).modulo(&self.p);
+        let ry = (&lambda * (&p.x - &rx) - &p.y).modulo(&self.p);
 
         CurvePoint {
             x: rx,

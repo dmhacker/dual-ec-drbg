@@ -5,6 +5,8 @@ extern crate time;
 extern crate num_cpus;
 extern crate pancurses;
 extern crate argparse;
+#[macro_use]
+extern crate lazy_static;
 
 pub mod math;
 pub mod points;
@@ -17,21 +19,25 @@ use ramp::RandomInt;
 use curves::Curve;
 use backdoor::predict;
 use prng::DualECDRBG;
-use math::mod_invert; 
 use argparse::{ArgumentParser, Store};
+use math::ModExtensions;
 
 fn main() {
-    let mut d_str = "".to_string(); 
     let mut curve_str = "P-256".to_string();
+    let mut backdoor_str = "".to_string(); 
+    let mut seed_str = "".to_string();
     {  
         let mut parser = ArgumentParser::new();
         parser.set_description("Interactive proof-of-concept of the Dual_EC_DRBG backdoor");
-        parser.refer(&mut d_str)
-            .add_option(&["--backdoor"], Store,
-            "Backdoor (in decimal)");
         parser.refer(&mut curve_str)
-            .add_option(&["--curve"], Store,
-            "NIST-standard curve type");
+            .add_option(&["--curve", "-c"], Store,
+            "NIST-standard curve type, either P-256, P-384, or P-521");
+        parser.refer(&mut backdoor_str)
+            .add_option(&["--backdoor", "-b"], Store,
+            "Backdoor to use (in decimal)");
+        parser.refer(&mut seed_str)
+            .add_option(&["--seed", "-s"], Store,
+            "Seed to use (in decimal)");
         parser.parse_args_or_exit();
     }
 
@@ -53,11 +59,11 @@ fn main() {
     }
 
     let d : Int;
-    if d_str == "" {
+    if backdoor_str == "" {
         d = seed_rng.gen_uint(curve.bitsize); 
     } 
     else {
-        d = Int::from_str_radix(&d_str, 10).unwrap();
+        d = Int::from_str_radix(&backdoor_str, 10).unwrap();
         if d < 2 {
             eprintln!("Backdoor must be greater than 2.");
             return;
@@ -68,7 +74,7 @@ fn main() {
     let window = pancurses::initscr();
 
     let seed = seed_rng.gen_uint(curve.bitsize); 
-    let q = curve.multiply(&curve.g, &mod_invert(&d, &curve.n).unwrap());
+    let q = curve.multiply(&curve.g, &d.mod_invert(&curve.n).unwrap());
     let mut prng = DualECDRBG::new(&curve, &seed, &curve.g, &q);
 
     window.printw(format!("Curve = \t{}\n", curve.name));
@@ -129,18 +135,18 @@ mod tests {
     use rand::thread_rng;
     use ramp::int::Int; 
     use ramp::RandomInt;
-    use math::mod_invert;
+    use math::ModExtensions;
     use curves::Curve;
 
     #[test]
     fn test_positive_mod_invert() {
-        let inverse = mod_invert(&Int::from(4), &Int::from(7));
+        let inverse = &Int::from(4).mod_invert(&Int::from(7));
         assert_eq!(inverse.unwrap(), Int::from(2));
     }
 
     #[test]
     fn test_negative_mod_invert() {
-        let inverse = mod_invert(&Int::from(-4), &Int::from(7));
+        let inverse = &Int::from(-4).mod_invert(&Int::from(7));
         assert_eq!(inverse.unwrap(), Int::from(5));
     }
 

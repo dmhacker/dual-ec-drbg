@@ -4,7 +4,7 @@ use pancurses::Window;
 use time::precise_time_s;
 use points::CurvePoint;
 use prng::DualECDRBG;
-use math::{modulo, mod_sqrt, p256_mod_sqrt};
+use math::ModExtensions;
 
 use num_cpus::get as num_cpus_get;
 use crossbeam::scope as crossbeam_scope;
@@ -35,13 +35,13 @@ pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, win
                     let timestamp = precise_time_s();
                     let lost_bits = Int::from(prefix) << prng.outsize;
                     let rqx = lost_bits | &output1; 
-                    let rqy2 = modulo(&(&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b), &curve.p);
+                    let rqy2 = (&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b).modulo(&curve.p);
                     let result : Option<Int>;
                     if curve.name == "P-256" { 
-                        result = p256_mod_sqrt(&rqy2);
+                        result = rqy2.p256_mod_sqrt();
                     } 
                     else { 
-                        result = mod_sqrt(&rqy2, &curve.p); 
+                        result = rqy2.mod_sqrt(&curve.p); 
                     } 
 
                     match result {
