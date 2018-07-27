@@ -14,13 +14,13 @@ pub mod curves;
 pub mod prng;
 pub mod backdoor;
 
+use std::rc::Rc;
 use rug::Integer;
 use prng::DualECDRBG;
 use argparse::{ArgumentParser, Store};
 use curves::Curve;
 use backdoor::predict;
 use math::RandExtensions;
-use points::CurvePoint;
 
 fn main() {
     let mut curve_str = "P-256".to_string();
@@ -43,15 +43,15 @@ fn main() {
 
     let mut rng = rand::thread_rng(); 
 
-    let curve : Curve;
+    let curve : Rc<Curve>; 
     if curve_str == "P-256" {
-        curve = Curve::gen_p256();
+        curve = Rc::new(Curve::gen_p256());
     } 
     else if curve_str == "P-384" {
-        curve = Curve::gen_p384();
+        curve = Rc::new(Curve::gen_p384());
     } 
     else if curve_str == "P-521" {
-        curve = Curve::gen_p521();
+        curve = Rc::new(Curve::gen_p521());
     } 
     else {
         eprintln!("Valid curves are P-256, P-384, P-521.");
@@ -78,8 +78,8 @@ fn main() {
         seed = Integer::from_str_radix(&seed_str, 10).unwrap();
     }
 
-    let p = CurvePoint { x: curve.gx.clone(), y : curve.gy.clone() };
-    let q = curve.multiply(&p, &d.clone().invert(&curve.n).unwrap());
+    let p = curve.g.convert(Rc::clone(&curve));
+    let q = &p * &d.clone().invert(&curve.n).unwrap();
     let mut prng = DualECDRBG::new(&curve, &seed, &p, &q);
 
     let window = pancurses::initscr();
@@ -87,7 +87,7 @@ fn main() {
     window.printw(format!("Seed = \t\t{}\n", seed.to_string_radix(16)));
     window.printw(format!("d = \t\t{}\n", d.clone().to_string_radix(16)));
     window.printw(format!("Q = \t\t{}\n", q));
-    window.printw(format!("dQ = \t\t{}\n", curve.multiply(&q, &d)));
+    window.printw(format!("dQ = \t\t{}\n", &q * &d));
     window.printw(format!("P = \t\t{}\n", p));
     window.hline('-', 10000);
     window.mvprintw(window.get_cur_y() + 1, 0, "Alice is generating some output ...");

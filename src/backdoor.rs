@@ -1,4 +1,5 @@
 use rug::{Assign, Integer};
+use std::rc::Rc;
 use std::sync::mpsc;
 use pancurses::Window;
 use time::precise_time_s;
@@ -32,12 +33,14 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
             let tx = tx.clone(); 
             let output1 = output1.clone();
             scope.spawn(move || {
-                let curve = &prng.curve;
+                let curve = Rc::new(prng.curve.clone());
                 let mut sent = false;
                 let mut prefix = thread_id;
 
                 let mut rqy2 = Integer::new();
                 let mut buffer = Integer::new();
+
+                let q = prng.q.convert(Rc::clone(&curve)); 
 
                 while prefix < 65536 {
                     let timestamp = precise_time_s();
@@ -65,11 +68,12 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                         Some(rqy) => {
                             let rq = CurvePoint {
                                 x: rqx,
-                                y: rqy
+                                y: rqy,
+                                curve: Rc::clone(&curve)
                             };
 
-                            let state_guess = curve.multiply(&rq, d).x;
-                            let output2_guess = curve.multiply(&prng.q, &state_guess).x & &prng.outmask; 
+                            let state_guess = (&rq * d).x;
+                            let output2_guess = (&q * &state_guess).x & &prng.outmask;
 
                             if &output2_guess == output2 {
                                 try_and_discard!(tx.send(

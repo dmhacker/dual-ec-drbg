@@ -1,14 +1,15 @@
+use std::rc::Rc;
 use rug::Integer;
 use curves::Curve;
-use points::CurvePoint;
+use points::{Point, CurvePoint};
 use pancurses::Window;
 
 pub struct DualECDRBG {
     pub curve : Curve,
     pub outsize : u32, 
     pub outmask : Integer,
-    pub p : CurvePoint,
-    pub q : CurvePoint,
+    pub p : Point,
+    pub q : Point,
     state : Integer
 }
 
@@ -26,17 +27,19 @@ impl DualECDRBG {
             curve: curve.clone(),
             outsize: outsize,
             outmask: outmask, 
-            p: p.clone(),
-            q: q.clone(),
+            p: Point::from(p),
+            q: Point::from(p),
             state: seed.clone() 
         }
     }
 
     pub fn next(&mut self) -> Integer {
-        let sp = self.curve.multiply(&self.p, &self.state);
+        let curve = Rc::new(self.curve.clone());
+
+        let sp = &self.p.convert(Rc::clone(&curve)) * &self.state;
         let s = sp.x.clone();
 
-        let s1q = self.curve.multiply(&self.q, &s);
+        let s1q = &self.q.convert(Rc::clone(&curve)) * &s;
         let r = s1q.x.clone();
 
         self.state = s;
