@@ -15,11 +15,12 @@ pub mod prng;
 pub mod backdoor;
 
 use rug::Integer;
-use curves::Curve;
-use backdoor::predict;
 use prng::DualECDRBG;
 use argparse::{ArgumentParser, Store};
+use curves::Curve;
+use backdoor::predict;
 use math::RandExtensions;
+use points::CurvePoint;
 
 fn main() {
     let mut curve_str = "P-256".to_string();
@@ -77,8 +78,9 @@ fn main() {
         seed = Integer::from_str_radix(&seed_str, 10).unwrap();
     }
 
-    let q = curve.multiply(&curve.g, &d.clone().invert(&curve.n).unwrap());
-    let mut prng = DualECDRBG::new(&curve, &seed, &curve.g, &q);
+    let p = CurvePoint { x: curve.gx.clone(), y : curve.gy.clone() };
+    let q = curve.multiply(&p, &d.clone().invert(&curve.n).unwrap());
+    let mut prng = DualECDRBG::new(&curve, &seed, &p, &q);
 
     let window = pancurses::initscr();
     window.printw(format!("Curve = \t{}\n", curve.name));
@@ -86,7 +88,7 @@ fn main() {
     window.printw(format!("d = \t\t{}\n", d.clone().to_string_radix(16)));
     window.printw(format!("Q = \t\t{}\n", q));
     window.printw(format!("dQ = \t\t{}\n", curve.multiply(&q, &d)));
-    window.printw(format!("P = \t\t{}\n", curve.g));
+    window.printw(format!("P = \t\t{}\n", p));
     window.hline('-', 10000);
     window.mvprintw(window.get_cur_y() + 1, 0, "Alice is generating some output ...");
     window.refresh();
@@ -136,18 +138,19 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use rug::Integer;
-    use rug::rand::RandState;
+    use rand::thread_rng;
+    use math::RandExtensions;
     use curves::Curve;
-    use math::ModExtensions;
+    use points::CurvePoint;
 
     #[test]
     fn test_point_multiplication() {
+        let mut rng = thread_rng(); 
         let curve = Curve::gen_p256();
-        let mut rng = RandState::new();
+        let p = CurvePoint { x: curve.gx.clone(), y: curve.gy.clone() };
         for _ in 0..20 {
-            let p = curve.multiply(&curve.g, &Integer::from(rng.bits(32)));
-            assert!(curve.is_on_curve(&p), format!("{} is not on the {} curve.", p, curve.name));
+            let q = curve.multiply(&p, &rng.gen_uint(curve.bitsize));
+            assert!(curve.is_on_curve(&q), format!("{} is not on the {} curve.", q, curve.name));
         }
     }
 }
