@@ -19,10 +19,7 @@ impl DualECDRBG {
 
         let outsize = curve.bitsize - 16;
 
-        let mut outmask = Integer::from(1);
-        for _ in 0..outsize {
-            outmask *= 2;
-        }
+        let mut outmask = Integer::from(Integer::u_pow_u(2, outsize));
         outmask -= 1;
 
         DualECDRBG {

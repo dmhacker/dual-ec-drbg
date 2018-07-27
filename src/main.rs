@@ -115,7 +115,7 @@ fn main() {
 
     let timestamp = time::precise_time_s();
     let prediction = predict(&prng, &d, &output1, &output2, &subwindow);
-    window.printw(format!("Eve spent {} minutes calculating Alice's state.\n", (time::precise_time_s() - timestamp) / 60.0));
+    window.printw(format!("Eve spent {} seconds calculating Alice's state.\n", time::precise_time_s() - timestamp));
 
     match prediction {
         Some(state) => {

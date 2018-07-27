@@ -41,8 +41,10 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
 
                 while prefix < 65536 {
                     let timestamp = precise_time_s();
-                    let lost_bits = Integer::from(prefix) << prng.outsize;
-                    let rqx = lost_bits | &output1; 
+
+                    buffer.assign(prefix);
+                    buffer <<= prng.outsize;
+                    let rqx = Integer::from(&buffer | &output1);
 
                     rqy2.assign(&rqx * &rqx);
                     rqy2 *= &rqx;
@@ -52,7 +54,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                     rqy2.modulo_mut(&curve.p);
 
                     let result : Option<Integer>;
-                    if curve.name == "P256" { 
+                    if curve.name == "P-256" { 
                         result = rqy2.p256_mod_sqrt();
                     } 
                     else { 
@@ -70,7 +72,16 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                             let output2_guess = curve.multiply(&prng.q, &state_guess).x & &prng.outmask; 
 
                             if &output2_guess == output2 {
-                                try_and_discard!(tx.send((true, Some(state_guess), "".to_string())));
+                                try_and_discard!(tx.send(
+                                        (false, 
+                                         None, 
+                                         format!("{:4x} ({:5}) | Found: {}\n", prefix, prefix, state_guess.to_string_radix(16)))
+                                ));
+                                try_and_discard!(tx.send(
+                                        (true, 
+                                         Some(state_guess), 
+                                         "".to_string())
+                                ));
                                 sent = true;
                                 break;
                             }
@@ -78,7 +89,12 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                         None => () 
                     }
 
-                    try_and_discard!(tx.send((false, None, format!("{:4x} ({:5}) | Took {} seconds\n", prefix, prefix, precise_time_s() - timestamp))));
+                    let time_used = (precise_time_s() - timestamp) * 1000.0;
+                    try_and_discard!(tx.send(
+                            (false, 
+                             None, 
+                             format!("{:4x} ({:5}) | Took {} ms\n", prefix, prefix, time_used))
+                    ));
 
                     prefix += num_threads;
                 }            
