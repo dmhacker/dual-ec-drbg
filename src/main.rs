@@ -1,5 +1,4 @@
-extern crate ramp;
-extern crate rand;
+extern crate rug;
 extern crate crossbeam;
 extern crate time;
 extern crate num_cpus;
@@ -14,13 +13,12 @@ pub mod curves;
 pub mod prng;
 pub mod backdoor;
 
-use ramp::int::Int;
-use ramp::RandomInt;
+use rug::Integer;
+use rug::rand::RandState;
 use curves::Curve;
 use backdoor::predict;
 use prng::DualECDRBG;
 use argparse::{ArgumentParser, Store};
-use math::ModExtensions;
 
 fn main() {
     let mut curve_str = "P-256".to_string();
@@ -41,7 +39,7 @@ fn main() {
         parser.parse_args_or_exit();
     }
 
-    let mut seed_rng = rand::thread_rng();
+    let mut rng = RandState::new(); 
 
     let curve : Curve;
     if curve_str == "P-256" {
@@ -58,28 +56,33 @@ fn main() {
         return;
     }
 
-    let d : Int;
+    let d : Integer;
     if backdoor_str == "" {
-        d = seed_rng.gen_uint(curve.bitsize); 
+        d = Integer::from(rng.bits(32));
     } 
     else {
-        d = Int::from_str_radix(&backdoor_str, 10).unwrap();
+        d = Integer::from_str_radix(&backdoor_str, 10).unwrap();
         if d < 2 {
             eprintln!("Backdoor must be greater than 2.");
             return;
         }
     }
-    
 
-    let window = pancurses::initscr();
+    let seed : Integer;
+    if seed_str == "" {
+        seed = Integer::from(rng.bits(32));
+    }
+    else {
+        seed = Integer::from_str_radix(&seed_str, 10).unwrap();
+    }
 
-    let seed = seed_rng.gen_uint(curve.bitsize); 
-    let q = curve.multiply(&curve.g, &d.mod_invert(&curve.n).unwrap());
+    let q = curve.multiply(&curve.g, &d.clone().invert(&curve.n).unwrap());
     let mut prng = DualECDRBG::new(&curve, &seed, &curve.g, &q);
 
+    let window = pancurses::initscr();
     window.printw(format!("Curve = \t{}\n", curve.name));
-    window.printw(format!("Seed = \t\t{}\n", seed.to_str_radix(16, false)));
-    window.printw(format!("d = \t\t{}\n", d.to_str_radix(16, false)));
+    window.printw(format!("Seed = \t\t{}\n", seed.to_string_radix(16)));
+    window.printw(format!("d = \t\t{}\n", d.clone().to_string_radix(16)));
     window.printw(format!("Q = \t\t{}\n", q));
     window.printw(format!("dQ = \t\t{}\n", curve.multiply(&q, &d)));
     window.printw(format!("P = \t\t{}\n", curve.g));
@@ -91,8 +94,8 @@ fn main() {
     let output2 = prng.next();
 
     window.deleteln();
-    window.mvprintw(window.get_cur_y(), 0, format!("Alice generated output 1 {}.\n", output1.to_str_radix(16, false)));
-    window.printw(format!("Alice generated output 2 {}.\n", output2.to_str_radix(16, false)));
+    window.mvprintw(window.get_cur_y(), 0, format!("Alice generated output 1 {}.\n", output1.to_string_radix(16)));
+    window.printw(format!("Alice generated output 2 {}.\n", output2.to_string_radix(16)));
     window.printw(format!("Eve has observed these outputs and will guess Alice's state.\n"));
     window.refresh();
 
@@ -116,7 +119,7 @@ fn main() {
 
     match prediction {
         Some(state) => {
-            window.printw(format!("Eve guessed Alice's state as {}.\n", &state.to_str_radix(16, false)));
+            window.printw(format!("Eve guessed Alice's state as {}.\n", &state.to_string_radix(16)));
         },
         None => {
             window.printw(format!("Eve was not able to guess Alice's state.\n")) ;
@@ -132,30 +135,17 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-    use ramp::int::Int; 
-    use ramp::RandomInt;
-    use math::ModExtensions;
+    use rug::Integer;
+    use rug::rand::RandState;
     use curves::Curve;
-
-    #[test]
-    fn test_positive_mod_invert() {
-        let inverse = &Int::from(4).mod_invert(&Int::from(7));
-        assert_eq!(inverse.unwrap(), Int::from(2));
-    }
-
-    #[test]
-    fn test_negative_mod_invert() {
-        let inverse = &Int::from(-4).mod_invert(&Int::from(7));
-        assert_eq!(inverse.unwrap(), Int::from(5));
-    }
+    use math::ModExtensions;
 
     #[test]
     fn test_point_multiplication() {
         let curve = Curve::gen_p256();
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let p = curve.multiply(&curve.g, &rng.gen_uint(curve.bitsize));
+        let mut rng = RandState::new();
+        for _ in 0..20 {
+            let p = curve.multiply(&curve.g, &Integer::from(rng.bits(32)));
             assert!(curve.is_on_curve(&p), format!("{} is not on the {} curve.", p, curve.name));
         }
     }

@@ -1,4 +1,4 @@
-use ramp::int::Int;
+use rug::{Assign, Integer};
 use std::sync::mpsc;
 use pancurses::Window;
 use time::precise_time_s;
@@ -15,8 +15,12 @@ macro_rules! try_and_discard {
         Err(_) => ()
     });
 }
-    
-pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, window : &Window) -> Option<Int> {
+
+lazy_static! {
+    static ref THREE : Integer = Integer::from(3);
+}
+
+pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &Integer, window : &Window) -> Option<Integer> {
     crossbeam_scope(|scope| {
         let (tx, rx) = mpsc::channel();
         let num_threads = num_cpus_get();
@@ -31,13 +35,24 @@ pub fn predict(prng : &DualECDRBG, d : &Int, output1 : &Int, output2 : &Int, win
                 let curve = &prng.curve;
                 let mut sent = false;
                 let mut prefix = thread_id;
+
+                let mut rqy2 = Integer::new();
+                let mut buffer = Integer::new();
+
                 while prefix < 65536 {
                     let timestamp = precise_time_s();
-                    let lost_bits = Int::from(prefix) << prng.outsize;
+                    let lost_bits = Integer::from(prefix) << prng.outsize;
                     let rqx = lost_bits | &output1; 
-                    let rqy2 = (&rqx * &rqx * &rqx + &curve.a * &rqx + &curve.b).modulo(&curve.p);
-                    let result : Option<Int>;
-                    if curve.name == "P-256" { 
+
+                    rqy2.assign(&rqx * &rqx);
+                    rqy2 *= &rqx;
+                    buffer.assign(&curve.a * &rqx);
+                    rqy2 += &buffer;
+                    rqy2 += &curve.b;
+                    rqy2.modulo_mut(&curve.p);
+
+                    let result : Option<Integer>;
+                    if curve.name == "P256" { 
                         result = rqy2.p256_mod_sqrt();
                     } 
                     else { 

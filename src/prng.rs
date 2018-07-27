@@ -1,35 +1,41 @@
-use ramp::int::Int;
+use rug::Integer;
 use curves::Curve;
 use points::CurvePoint;
 use pancurses::Window;
 
 pub struct DualECDRBG {
     pub curve : Curve,
-    pub outsize : usize, 
-    pub outmask : Int,
+    pub outsize : u32, 
+    pub outmask : Integer,
     pub p : CurvePoint,
     pub q : CurvePoint,
-    state : Int
+    state : Integer
 }
 
 impl DualECDRBG {
-    pub fn new(curve : &Curve, seed : &Int, p: &CurvePoint, q: &CurvePoint) -> DualECDRBG {
+    pub fn new(curve : &Curve, seed : &Integer, p: &CurvePoint, q: &CurvePoint) -> DualECDRBG {
         assert!(curve.is_on_curve(p), "P must be on the curve");
         assert!(curve.is_on_curve(q), "Q must be on the curve");
 
         let outsize = curve.bitsize - 16;
 
+        let mut outmask = Integer::from(1);
+        for _ in 0..outsize {
+            outmask *= 2;
+        }
+        outmask -= 1;
+
         DualECDRBG {
             curve: curve.clone(),
             outsize: outsize,
-            outmask: Int::from(2).pow(outsize) - 1,
+            outmask: outmask, 
             p: p.clone(),
             q: q.clone(),
             state: seed.clone() 
         }
     }
 
-    pub fn next(&mut self) -> Int {
+    pub fn next(&mut self) -> Integer {
         let sp = self.curve.multiply(&self.p, &self.state);
         let s = sp.x.clone();
 
@@ -44,10 +50,10 @@ impl DualECDRBG {
     pub fn print_state(&self, prefix : &str, suffix : &str, window : Option<&Window>) {
         match window {
             Some(window) => {
-                window.printw(format!("{}{}{}", prefix, self.state.to_str_radix(16, false), suffix));
+                window.printw(format!("{}{}{}", prefix, self.state.to_string_radix(16), suffix));
             },
             None => {
-                println!("{}{}{}", prefix, self.state.to_str_radix(16, false), suffix);
+                println!("{}{}{}", prefix, self.state.to_string_radix(16), suffix);
             }
         };
     }
