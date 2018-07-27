@@ -4,13 +4,13 @@ use math::ModExtensions;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Curve {
-    pub name: String,           // Name of the curve
-    pub bitsize: u32,           // Level of security offered by the curve 
-    pub p: Integer,             // Order of the finite field that the curve belongs to (mod p)
-    pub n: Integer,             // Order of the elliptic curve group
-    pub a: Integer,             // a parameter in the curve equation
-    pub b: Integer,             // b parameter in the curve equation
-    pub g: CurvePoint           // Generator (base) point
+    pub name: String,               // Name of the curve
+    pub bitsize: u32,               // Level of security offered by the curve 
+    pub p: Integer,                 // Order of the finite field that the curve belongs to (mod p)
+    pub n: Integer,                 // Order of the elliptic curve group
+    pub a: Integer,                 // a parameter in the curve equation
+    pub b: Integer,                 // b parameter in the curve equation
+    pub g: CurvePoint               // Generator (base) point
 }
 
 impl Curve {

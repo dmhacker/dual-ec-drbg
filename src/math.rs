@@ -1,4 +1,5 @@
 use rug::{Integer, Assign};
+use rand::Rng;
 
 lazy_static! {
     static ref ONE : Integer = Integer::from(1);
@@ -136,3 +137,31 @@ impl ModExtensions for Integer {
     }
 }
 
+pub trait RandExtensions {
+    fn gen_uint(&mut self, bits : u32) -> Integer;
+}
+
+impl<R: Rng> RandExtensions for R {
+    fn gen_uint(&mut self, bits : u32) -> Integer {
+        let mut bits_remaining = bits;
+        let mut bitmask = Integer::new();
+        let mut randint = Integer::new();
+        let mut buffer = Integer::new();
+        while bits_remaining > 0 {
+            let generated : u32 = self.gen();
+            let amount = if bits_remaining > 32 {
+                32
+            }
+            else {
+                bits_remaining
+            };
+            bitmask.assign(Integer::u_pow_u(2, amount as u32));
+            bitmask -= 1;
+            buffer.assign(generated & &bitmask);
+            randint <<= amount as u32;
+            randint |= &buffer;
+            bits_remaining -= amount;
+        }
+        randint
+    }
+}

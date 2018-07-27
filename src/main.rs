@@ -1,4 +1,5 @@
 extern crate rug;
+extern crate rand;
 extern crate crossbeam;
 extern crate time;
 extern crate num_cpus;
@@ -14,11 +15,11 @@ pub mod prng;
 pub mod backdoor;
 
 use rug::Integer;
-use rug::rand::RandState;
 use curves::Curve;
 use backdoor::predict;
 use prng::DualECDRBG;
 use argparse::{ArgumentParser, Store};
+use math::RandExtensions;
 
 fn main() {
     let mut curve_str = "P-256".to_string();
@@ -39,7 +40,7 @@ fn main() {
         parser.parse_args_or_exit();
     }
 
-    let mut rng = RandState::new(); 
+    let mut rng = rand::thread_rng(); 
 
     let curve : Curve;
     if curve_str == "P-256" {
@@ -58,7 +59,7 @@ fn main() {
 
     let d : Integer;
     if backdoor_str == "" {
-        d = Integer::from(rng.bits(32));
+        d = rng.gen_uint(curve.bitsize);
     } 
     else {
         d = Integer::from_str_radix(&backdoor_str, 10).unwrap();
@@ -70,7 +71,7 @@ fn main() {
 
     let seed : Integer;
     if seed_str == "" {
-        seed = Integer::from(rng.bits(32));
+        seed = rng.gen_uint(curve.bitsize);
     }
     else {
         seed = Integer::from_str_radix(&seed_str, 10).unwrap();
