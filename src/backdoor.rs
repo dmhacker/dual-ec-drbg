@@ -1,6 +1,6 @@
 use rug::{Assign, Integer};
 use std::rc::Rc;
-use std::sync::mpsc;
+use std::sync::{Arc, Mutex, mpsc};
 use pancurses::Window;
 use time::precise_time_s;
 use points::CurvePoint;
@@ -29,9 +29,11 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
         window.printw(format!("Recovering lost bits using {} threads ...\n", num_threads));
         window.refresh();
 
+        let global_finished = Arc::new(Mutex::new(false));
+
         for thread_id in 0..num_threads {
             let tx = tx.clone(); 
-            let output1 = output1.clone();
+            let global_finished = global_finished.clone();
             scope.spawn(move || {
                 let curve = Rc::new(prng.curve.clone());
                 let mut sent = false;
@@ -45,9 +47,17 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                 while prefix < 65536 {
                     let timestamp = precise_time_s();
 
+                    {
+                        let halt = global_finished.lock().unwrap();
+                        if *halt {
+                            try_and_discard!(tx.send((true, None, "".to_string())));
+                            break;
+                        }
+                    }
+
                     buffer.assign(prefix);
                     buffer <<= prng.outsize;
-                    let rqx = Integer::from(&buffer | &output1);
+                    let rqx = Integer::from(&buffer | output1);
 
                     rqy2.assign(&rqx * &rqx);
                     rqy2 *= &rqx;
@@ -107,13 +117,19 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                 }
             });
         }
+
+        let mut global_result = None;
         let mut threads_finished = 0;
         while threads_finished < num_threads {
             match rx.recv() {
                 Ok((is_result, result, message)) => {
                     if is_result {
                         match result {
-                            Some(ret) => return Some(ret),
+                            Some(ret) => {
+                                global_result = Some(ret);
+                                let mut halt = global_finished.lock().unwrap();
+                                *halt = true;
+                            },
                             None => threads_finished += 1
                         }
                     }
@@ -125,7 +141,8 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                 _ => ()
             }
         }
-        None
+
+        global_result 
     })
 }
 
