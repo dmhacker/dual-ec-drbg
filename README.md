@@ -20,4 +20,6 @@ cargo run -- --help
 ```
 for additional help.
 
+By default, the program uses the P-256 curve and randomly generated seed and backdoor values. All numbers in the program are displayed in hexadecimal. Additionally, you can provide the `--release` flag to cargo to build an optimized version of the program that reduces runtime by about 20% at the cost of additional compilation time.
+
 _Please note that this demo uses [pancurses](https://github.com/ihalila/pancurses), a cross-compatible curses library supporting terminals in both Unix and Windows. It's recommended you run the demo in a large terminal window, so that some of the elliptic curve numbers don't wrap around the edge of the screen or get cut off._
