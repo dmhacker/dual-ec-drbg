@@ -35,6 +35,10 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
             let tx = tx.clone(); 
             let global_finished = global_finished.clone();
             scope.spawn(move || {
+                let send_result = |work_result: Option<Integer>| try_and_discard!(tx.send(
+                    (work_result, "".to_string())
+                ));
+
                 let curve = Rc::new(prng.curve.clone());
                 let mut sent = false;
                 let mut prefix = thread_id;
@@ -45,12 +49,16 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                 let q = prng.q.convert(Rc::clone(&curve)); 
 
                 while prefix < 65536 {
+                    let message_prefix = format!("[{}] [{:04x} ({:05})]", thread_id, prefix, prefix);
+                    let send_message = |debug_message: String| try_and_discard!(tx.send(
+                        (None, format!("{}: {}\n", message_prefix, debug_message))
+                    ));
+
                     let timestamp = precise_time_s();
 
                     {
                         let halt = global_finished.lock().unwrap();
                         if *halt {
-                            try_and_discard!(tx.send((true, None, "".to_string())));
                             break;
                         }
                     }
@@ -66,15 +74,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                     rqy2 += &curve.b;
                     rqy2.modulo_mut(&curve.p);
 
-                    let result : Option<Integer>;
-                    if curve.name == "P-256" { 
-                        result = rqy2.p256_mod_sqrt();
-                    } 
-                    else { 
-                        result = rqy2.mod_sqrt(&curve.p); 
-                    } 
-
-                    match result {
+                    match rqy2.sqrt_mod(&curve.p) {
                         Some(rqy) => {
                             let rq = CurvePoint {
                                 x: rqx,
@@ -86,16 +86,9 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                             let output2_guess = (&q * &state_guess).x & &prng.outmask;
 
                             if &output2_guess == output2 {
-                                try_and_discard!(tx.send(
-                                        (false, 
-                                         None, 
-                                         format!("{:4x} ({:5}) | Found: {}\n", prefix, prefix, state_guess.to_string_radix(16)))
-                                ));
-                                try_and_discard!(tx.send(
-                                        (true, 
-                                         Some(state_guess), 
-                                         "".to_string())
-                                ));
+                                send_message(format!("rQ = {}", rq));
+                                send_message(format!("drQ.x = {}", state_guess.to_string_radix(16)));
+                                send_result(Some(state_guess));
                                 sent = true;
                                 break;
                             }
@@ -104,16 +97,12 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                     }
 
                     let time_used = (precise_time_s() - timestamp) * 1000.0;
-                    try_and_discard!(tx.send(
-                            (false, 
-                             None, 
-                             format!("{:4x} ({:5}) | Took {} ms\n", prefix, prefix, time_used))
-                    ));
-
+                    send_message(format!("Took {} ms", time_used));
                     prefix += num_threads;
                 }            
+
                 if !sent {
-                    try_and_discard!(tx.send((true, None, "".to_string())));
+                    send_result(None);
                 }
             });
         }
@@ -122,18 +111,19 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
         let mut threads_finished = 0;
         while threads_finished < num_threads {
             match rx.recv() {
-                Ok((is_result, result, message)) => {
-                    if is_result {
+                Ok((result, message)) => {
+                    if message == "" {
                         match result {
                             Some(ret) => {
                                 global_result = Some(ret);
                                 let mut halt = global_finished.lock().unwrap();
                                 *halt = true;
                             },
-                            None => threads_finished += 1
+                            None => () 
                         }
+                        threads_finished += 1
                     }
-                    else {
+                    else if global_result.is_none() {
                         window.printw(message);
                         window.refresh();
                     }

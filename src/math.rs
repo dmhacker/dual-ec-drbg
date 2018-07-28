@@ -17,8 +17,7 @@ lazy_static! {
 pub trait ModExtensions {
     fn modulo(&self, n : &Integer) -> Integer;
     fn modulo_mut(&mut self, n : &Integer);
-    fn mod_sqrt(&self, n : &Integer) -> Option<Integer>;
-    fn p256_mod_sqrt(&self) -> Option<Integer>;
+    fn sqrt_mod(&self, n : &Integer) -> Option<Integer>;
 }
 
 impl ModExtensions for Integer {
@@ -33,7 +32,7 @@ impl ModExtensions for Integer {
         self.pow_mod_mut(&ONE, n).unwrap();
     }
 
-    fn mod_sqrt(&self, p : &Integer) -> Option<Integer> {
+    fn sqrt_mod(&self, p : &Integer) -> Option<Integer> {
         // Big number implementation of the Tonelli-Shanks algorithm 
         let mut tmp = Integer::from(p - 1);
         tmp >>= 1;
@@ -104,36 +103,6 @@ impl ModExtensions for Integer {
             t.modulo_mut(p);
             m = i.clone();
         }    
-    }
-
-    fn p256_mod_sqrt(&self) -> Option<Integer> {
-        // Fast version of mod_sqrt, only works for the prime modulus in the P-256 NIST curve
-        let mut t1 = self.clone().pow_mod(&TWO, &P256_P).unwrap();
-        t1 *= self;
-        t1.modulo_mut(&P256_P);
-        let mut t2 = t1.clone().pow_mod(&TWO_POW_2, &P256_P).unwrap();
-        t2 *= &t1;
-        t2.modulo_mut(&P256_P);
-        let mut t3 = t2.clone().pow_mod(&TWO_POW_4, &P256_P).unwrap();
-        t3 *= &t2;
-        t2.modulo_mut(&P256_P);
-        let mut t4 = t3.clone().pow_mod(&TWO_POW_8, &P256_P).unwrap();
-        t4 *= &t3; 
-        t4.modulo_mut(&P256_P);
-        let mut r = t4.clone().pow_mod(&TWO_POW_16, &P256_P).unwrap();
-        r *= &t4;
-        r.modulo_mut(&P256_P);
-        r.pow_mod_mut(&TWO_POW_32, &P256_P).unwrap();
-        r *= self;
-        r.modulo_mut(&P256_P);
-        r.pow_mod_mut(&TWO_POW_96, &P256_P).unwrap();
-        r *= self;
-        r.modulo_mut(&P256_P);
-        r.pow_mod_mut(&TWO_POW_94, &P256_P).unwrap();
-        if self == &r.clone().pow_mod(&TWO, &P256_P).unwrap() {
-            return Some(r);
-        }
-        None 
     }
 }
 
