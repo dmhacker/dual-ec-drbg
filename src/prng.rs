@@ -28,7 +28,7 @@ impl DualECDRBG {
             outsize: outsize,
             outmask: outmask, 
             p: Point::from(p),
-            q: Point::from(p),
+            q: Point::from(q),
             state: seed.clone() 
         }
     }
