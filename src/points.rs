@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::fmt::{Display, Formatter, Result};
-use std::ops::{Add, Mul};
+use std::ops::{Add, AddAssign, Mul, MulAssign};
 use rug::Integer; 
 use curves::Curve;
 use math::ModExtensions;
@@ -73,6 +73,7 @@ fn _lambda(p : &CurvePoint, q : &CurvePoint, numer : Integer, mut denom : Intege
     }
 }
 
+#[inline]
 fn _double(p : &CurvePoint) -> CurvePoint {
     let mut numer = Integer::from(3);
     numer *= &p.x;
@@ -82,21 +83,60 @@ fn _double(p : &CurvePoint) -> CurvePoint {
     let mut denom = Integer::from(2);
     denom *= &p.y;
 
-    _lambda(p, p, numer, denom) 
+    _lambda(p, p, numer, denom)
+}
+
+#[inline]
+fn _add(p : &CurvePoint, q : &CurvePoint) -> CurvePoint {
+    if p == q {
+        return _double(&q);
+    }
+
+    assert_eq!(p.curve, q.curve);
+    
+    let numer = Integer::from(&q.y - &p.y); 
+    let denom = Integer::from(&q.x - &p.x);
+
+    _lambda(p, q, numer, denom)
+}
+
+#[inline]
+fn _mul(p : &CurvePoint, s : &Integer) -> CurvePoint {
+    let mut q = p.clone(); 
+
+    let m = s.significant_bits();
+    let mut i = m - 2;
+
+    loop {
+        q = _double(&q);
+        if s.get_bit(i as u32) { 
+            q += p; 
+        }
+
+        if i == 0 {
+            break;
+        }
+        else {
+            i -= 1;
+        }
+    }
+
+    q
 }
 
 impl<'a, 'b> Add<&'a CurvePoint> for &'b CurvePoint {
     type Output = CurvePoint;
 
     fn add(self, q : &'a CurvePoint) -> CurvePoint {
-        if self == q {
-            return _double(&q);
-        }
-        
-        let numer = Integer::from(&q.y - &self.y); 
-        let denom = Integer::from(&q.x - &self.x);
+        _add(&self, q)
+    }
+}
 
-        _lambda(self, q, numer, denom) 
+impl<'a> AddAssign<&'a CurvePoint> for CurvePoint {
+    fn add_assign(&mut self, q : &'a CurvePoint) {
+        let result = _add(self, q);
+        self.x = result.x;
+        self.y = result.y;
     }
 }
 
@@ -104,25 +144,14 @@ impl<'a, 'b> Mul<&'a Integer> for &'b CurvePoint {
     type Output = CurvePoint;
 
     fn mul(self, s : &'a Integer) -> CurvePoint {
-        let mut q = self.clone(); 
+        _mul(&self, s)
+    }
+}
 
-        let m = s.significant_bits();
-        let mut i = m - 2;
-
-        loop {
-            q = _double(&q);
-            if s.get_bit(i as u32) { 
-                q = &q + self; 
-            }
-
-            if i == 0 {
-                break;
-            }
-            else {
-                i -= 1;
-            }
-        }
-
-        q
+impl<'a> MulAssign<&'a Integer> for CurvePoint {
+    fn mul_assign(&mut self, s : &'a Integer) {
+        let result = _mul(self, s);
+        self.x = result.x;
+        self.y = result.y;
     }
 }
