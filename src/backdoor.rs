@@ -88,6 +88,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                             if &output2_guess == output2 {
                                 send_message(format!("rQ = {}", rq));
                                 send_message(format!("drQ.x = {}", state_guess.to_string_radix(16)));
+                                send_message(format!("Final time = {:.3} ms", (precise_time_s() - timestamp) * 1000.0));
                                 send_result(Some(state_guess));
                                 sent = true;
                                 break;
@@ -96,8 +97,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                         None => () 
                     }
 
-                    let time_used = (precise_time_s() - timestamp) * 1000.0;
-                    send_message(format!("Took {} ms", time_used));
+                    send_message(format!("Time = {:.3} ms", (precise_time_s() - timestamp) * 1000.0));
                     prefix += num_threads;
                 }            
 
