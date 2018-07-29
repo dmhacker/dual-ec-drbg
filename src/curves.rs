@@ -1,7 +1,7 @@
-use rug::{Assign, Integer};
-use points::{Point, CurvePoint};
-use math::ModExtensions;
+use rug::Integer;
+use points::Point;
 
+// A Curve is defined as a collection of parameters representing an elliptic curve
 #[derive(Clone, Debug, PartialEq)]
 pub struct Curve {
     pub name: String,               // Name of the curve
@@ -14,25 +14,6 @@ pub struct Curve {
 }
 
 impl Curve {
-    pub fn is_on_curve(&self, p : &CurvePoint) -> bool {
-        let mut lhs = Integer::new();
-        let mut rhs = Integer::new();
-        let mut buffer = Integer::new();
-
-        lhs.assign(&p.y * &p.y);
-        lhs.modulo_mut(&self.p);
-
-        buffer.assign(&self.a * &p.x);
-
-        rhs.assign(&p.x * &p.x);
-        rhs *= &p.x;
-        rhs += &buffer;
-        rhs += &self.b;
-        rhs.modulo_mut(&self.p);
-
-        (lhs == rhs)
-    }
-
     pub fn gen_p256() -> Curve {
         Curve {
             name: String::from("P-256"),

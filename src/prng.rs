@@ -14,37 +14,46 @@ pub struct DualECDRBG {
 }
 
 impl DualECDRBG {
-    pub fn new(curve : &Curve, seed : &Integer, p: &CurvePoint, q: &CurvePoint) -> DualECDRBG {
-        assert!(curve.is_on_curve(p), "P must be on the curve");
-        assert!(curve.is_on_curve(q), "Q must be on the curve");
+    pub fn new(curve : &Curve, p: &Point, q: &Point, seed : &Integer) -> DualECDRBG {
+        assert!(p.is_on_curve(&curve), "P must be on the curve.");
+        assert!(q.is_on_curve(&curve), "Q must be on the curve.");
 
+        // The first 16 bits are removed from every output
         let outsize = curve.bitsize - 16;
 
+        // The AND bitmask is equivalent to 2^{bitsize} - 1
+        // This produces a string of 1's that is `bitsize` in length
         let mut outmask = Integer::from(Integer::u_pow_u(2, outsize));
         outmask -= 1;
 
         DualECDRBG {
-            curve: curve.clone(),
+            curve: curve.clone(), 
             outsize: outsize,
             outmask: outmask, 
-            p: Point::from(p),
-            q: Point::from(q),
+            p: p.clone(),
+            q: q.clone(), 
             state: seed.clone() 
         }
     }
 
     pub fn next(&mut self) -> Integer {
+        // Create a reference to a clone DRBG's curve parameters
         let curve = Rc::new(self.curve.clone());
+        
+        // Multiply P by the state s to get the new point sP
+        let mut sp = CurvePoint::from(&self.p, &curve);
+        sp *= &self.state;
 
-        let sp = &self.p.convert(Rc::clone(&curve)) * &self.state;
-        let s = sp.x.clone();
+        // Set the state to sP.x 
+        self.state = sp.x;
 
-        let s1q = &self.q.convert(Rc::clone(&curve)) * &s;
-        let r = s1q.x.clone();
+        // Multiply Q by the new state t to get tQ = (sP.x)Q
+        let mut tq = CurvePoint::from(&self.q, &curve);
+        tq *= &self.state;
 
-        self.state = s;
-
-        r & &self.outmask
+        // Truncate the first 16 bits off of tQ by applying a bitmask 
+        // Return this as 'random' output
+        tq.x & &self.outmask
     }
 
     pub fn print_state(&self, prefix : &str, suffix : &str, window : Option<&Window>) {

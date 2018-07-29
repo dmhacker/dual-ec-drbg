@@ -22,16 +22,20 @@ pub trait ModExtensions {
 
 impl ModExtensions for Integer {
 
+    // Computes a new integer r, such that r = self mod n 
     fn modulo(&self, n : &Integer) -> Integer {
         let mut r = self.clone();
         r.pow_mod_mut(&ONE, n).unwrap();
         r
     }
 
+    // Computes self = self mod n
     fn modulo_mut(&mut self, n : &Integer) {
         self.pow_mod_mut(&ONE, n).unwrap();
     }
 
+    // Computes a new integer r, such that r^2 = self (mod p)
+    // The modulus p must be a prime number for this to work
     fn sqrt_mod(&self, p : &Integer) -> Option<Integer> {
         // Big number implementation of the Tonelli-Shanks algorithm 
         let mut tmp = Integer::from(p - 1);
@@ -111,26 +115,41 @@ pub trait RandExtensions {
 }
 
 impl<R: Rng> RandExtensions for R {
+    // Computes a random large integer that has `bits` number of bits
     fn gen_uint(&mut self, bits : u32) -> Integer {
         let mut bits_remaining = bits;
         let mut bitmask = Integer::new();
         let mut randint = Integer::new();
-        let mut buffer = Integer::new();
+
         while bits_remaining > 0 {
-            let generated : u32 = self.gen();
+            // Generate 32 random bits
+            let mut generated : u32 = self.gen();
+
+            // Compute the exact amount of bits needed for the final result
+            // If more bits are needed, set the max as 32
             let amount = if bits_remaining > 32 {
                 32
             }
             else {
                 bits_remaining
             };
+
+            // The AND bitmask is equivalent to 2^{amount} - 1
+            // This produces a string of `amount` 1's
             bitmask.assign(Integer::u_pow_u(2, amount as u32));
             bitmask -= 1;
-            buffer.assign(generated & &bitmask);
+
+            // Truncate the generated bits to the amount we need 
+            generated &= bitmask.to_u32().unwrap();
+
+            // Shift the current bits over and add the newly generated ones
             randint <<= amount as u32;
-            randint |= &buffer;
+            randint |= &generated;
+
+            // Decrease the amount of bits that we need to completion
             bits_remaining -= amount;
         }
+
         randint
     }
 }
