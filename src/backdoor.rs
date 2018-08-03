@@ -21,7 +21,7 @@ lazy_static! {
     static ref THREE : Integer = Integer::from(3);
 }
 
-pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &Integer, window : &Window) -> Option<Integer> {
+pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, window : &Window) -> Option<Integer> {
     // Wrap in a crossbeam scope, so that we can use clones of the certain thread-safe formal parameters
     crossbeam_scope(|scope| {
         // Open a channel for communicating debug messages & work results
@@ -62,6 +62,19 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                 let mut rqy2 = Integer::new();
                 let mut buffer = Integer::new();
 
+                // The first DRBG output is the upper `outsize` bits without the last 16 bits
+                let output1 = Integer::from(output >> 16);
+
+                // 
+                let mut output2_mask = Integer::from(Integer::u_pow_u(2, 16));
+                output2_mask -= 1;
+
+                // The second DRBG output is the  
+                let output2 = Integer::from(output & &output2_mask);
+
+                //
+                output2_mask <<= prng.outsize - 16;
+
                 while prefix < 65536 {
                     // Closure for sending debug message to main thread
                     let message_prefix = format!("[{}] [{:04x} ({:05})]", thread_id, prefix, prefix);
@@ -85,7 +98,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                     // Determine rQ.x by adding back the lost bits
                     buffer.assign(prefix);
                     buffer <<= prng.outsize;
-                    let rqx = Integer::from(&buffer | output1);
+                    let rqx = Integer::from(&buffer | &output1);
 
                     // Calculate (rQ.y)^2 using the curve equation
                     rqy2.assign(&rqx * &rqx);
@@ -109,10 +122,12 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output1 : &Integer, output2 : &
                             let state_guess = (&rq * d).x;
 
                             // Now that we have the state, we can make a guess as to the second output of the PRNG
-                            let output2_guess = (&q * &state_guess).x & &prng.outmask;
+                            let mut output2_guess = (&q * &state_guess).x & &prng.outmask;
+                            output2_guess &= &output2_mask;
+                            output2_guess >>= &prng.outsize - 16;
 
                             // Check to make sure the outputs match up
-                            if &output2_guess == output2 {
+                            if output2_guess == output2 {
                                 send_message(format!("rQ = {}", rq));
                                 send_message(format!("drQ.x = {}", state_guess.to_string_radix(16)));
                                 send_message(format!("Time = {:.3} ms", (precise_time_s() - timestamp) * 1000.0));

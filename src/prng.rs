@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use rug::Integer;
+use rug::{Integer, Assign};
 use curves::Curve;
 use points::{Point, CurvePoint};
 use pancurses::Window;
@@ -54,6 +54,32 @@ impl DualECDRBG {
         // Truncate the first 16 bits off of tQ by applying a bitmask 
         // Return this as 'random' output
         tq.x & &self.outmask
+    }
+
+    pub fn next_bits(&mut self, bits : u32) -> Integer {
+        let mut remaining = bits;
+        let mut result = Integer::new();
+        let mut buffer = Integer::new();
+        while remaining > 0 {
+            // Determine the maximum bits we can extract from one call to next()
+            let amount = if remaining < self.outsize {
+                remaining
+            } 
+            else {
+                self.outsize
+            };
+
+            // Only preserve the significant bits we need 
+            buffer.assign(self.next() >> (self.outsize - amount));
+
+            // Apply the buffer to the result
+            result <<= amount;
+            result |= &buffer;
+
+            // Decrease the bits remaining
+            remaining -= amount;
+        }
+        return result;
     }
 
     pub fn print_state(&self, prefix : &str, suffix : &str, window : Option<&Window>) {

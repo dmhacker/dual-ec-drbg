@@ -106,12 +106,11 @@ fn main() {
     window.refresh();
   
     // Generate and display two successive outputs from the DRBG
-    let output1 = prng.next();
-    let output2 = prng.next();
+    let outsize = prng.outsize + 16;
+    let output = prng.next_bits(outsize);
     window.deleteln();
-    window.mvprintw(window.get_cur_y(), 0, format!("Alice generated output 1 {}.\n", output1.to_string_radix(16)));
-    window.printw(format!("Alice generated output 2 {}.\n", output2.to_string_radix(16)));
-    window.printw(format!("Eve has observed these outputs and will guess Alice's state.\n"));
+    window.mvprintw(window.get_cur_y(), 0, format!("Alice generated output {} ({} bytes).\n", output.to_string_radix(16), outsize / 8));
+    window.printw(format!("Eve has observed this output and will guess Alice's state.\n"));
     window.refresh();
 
     // Draw a dividing line between the info window at the top and the debug subwindow
@@ -131,7 +130,7 @@ fn main() {
 
     // Do prediction and measure time it took
     let timestamp = time::precise_time_s();
-    let prediction = predict(&prng, &d, &output1, &output2, &subwindow);
+    let prediction = predict(&prng, &d, &output, &subwindow);
     window.printw(format!("Eve spent {} seconds calculating Alice's state.\n", time::precise_time_s() - timestamp));
 
     match prediction {
