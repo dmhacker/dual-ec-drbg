@@ -16,7 +16,7 @@ pub mod backdoor;
 use std::rc::Rc;
 use rug::Integer;
 use prng::DualECDRBG;
-use argparse::{ArgumentParser, Store};
+use argparse::{ArgumentParser, Store, StoreTrue};
 use curves::Curve;
 use points::{Point, CurvePoint};
 use backdoor::predict;
@@ -27,6 +27,7 @@ fn main() {
     let mut curve_str = "P-256".to_string();
     let mut backdoor_str = "".to_string(); 
     let mut seed_str = "".to_string();
+    let mut verbose = false;
     {  
         let mut parser = ArgumentParser::new();
         parser.set_description("Interactive proof-of-concept of the Dual_EC_DRBG backdoor");
@@ -39,6 +40,9 @@ fn main() {
         parser.refer(&mut seed_str)
             .add_option(&["--seed", "-s"], Store,
             "Seed to use (in decimal)");
+        parser.refer(&mut verbose)
+            .add_option(&["--verbose", "-v"], StoreTrue,
+            "Print debug messages");
         parser.parse_args_or_exit();
     }
 
@@ -108,7 +112,7 @@ fn main() {
 
     // Do prediction and measure time it took
     let timestamp = time::precise_time_s();
-    let prediction = predict(&prng, &d, &output, true);
+    let prediction = predict(&prng, &d, &output, verbose);
     println!("Eve spent {} seconds calculating Alice's state.", time::precise_time_s() - timestamp);
 
     match prediction {
