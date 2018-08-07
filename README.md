@@ -1,4 +1,4 @@
-# dual-ec-drbg-backdoor
+# dual-ec-drbg
 
 This is an interactive proof-of-concept of the Dual_EC_DRBG backdoor. It uses an implementation of the 2006 Dual_EC_DRBG algorithm without any additional input. Please see [this redacted NIST paper](https://csrc.nist.gov/publications/detail/sp/800-90a/archive/2012-01-23) for algorithmic details. Project Bullrun also has [a good overview of the subject](https://www.projectbullrun.org/dual-ec/documents/dual-ec-20150731.pdf).
 
@@ -7,8 +7,8 @@ This demonstration shows how a [Shumlow-Ferguson attack](http://rump2007.cr.yp.t
 In order to run the demonstration, open your favorite terminal and run these commands:
 
 ```
-git clone https://github.com/dmhacker/dual-ec-drbg-backdoor
-cd dual-ec-drbg-backdoor
+git clone https://github.com/dmhacker/dual-ec-drbg
+cd dual-ec-drbg
 cargo run
 ```
 
