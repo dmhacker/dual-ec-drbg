@@ -1,7 +1,6 @@
 use rug::{Assign, Integer};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, mpsc};
-use pancurses::Window;
 use time::precise_time_s;
 use points::CurvePoint;
 use prng::DualECDRBG;
@@ -21,7 +20,7 @@ lazy_static! {
     static ref THREE : Integer = Integer::from(3);
 }
 
-pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, window : &Window) -> Option<Integer> {
+pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool) -> Option<Integer> {
     // Wrap in a crossbeam scope, so that we can use clones of the certain thread-safe formal parameters
     crossbeam_scope(|scope| {
         // Open a channel for communicating debug messages & work results
@@ -32,6 +31,11 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, window : &Wi
 
         // Use a global counter to tell child threads to halt computation
         let global_finished = Arc::new(Mutex::new(false));
+
+        // Print debug information title
+        if debug {
+            println!("\nDebug information:");
+        }
 
         for thread_id in 0..num_threads {
             // Clone references to channel and halt counter
@@ -77,10 +81,10 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, window : &Wi
 
                 while prefix < 65536 {
                     // Closure for sending debug message to main thread
-                    let message_prefix = format!("[{}] [{:04x} ({:05})]", thread_id, prefix, prefix);
+                    let message_prefix = format!("[Thread {}] [Prefix {:04x} ({:05})]", thread_id, prefix, prefix);
                     let send_message = |debug_message: String| {
                         try_and_discard!(tx.send(
-                            (None, format!("{}: {}\n", message_prefix, debug_message))
+                            (None, format!("{}: {}      ", message_prefix, debug_message))
                         ));
                     };
 
@@ -128,9 +132,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, window : &Wi
 
                             // Check to make sure the outputs match up
                             if output2_guess == output2 {
-                                send_message(format!("rQ = {}", rq));
-                                send_message(format!("drQ.x = {}", state_guess.to_string_radix(16)));
-                                send_message(format!("Time = {:.3} ms", (precise_time_s() - timestamp) * 1000.0));
+                                send_message(format!("Time = {0:.3} ms", (precise_time_s() - timestamp) * 1000.0));
                                 send_result(Some(state_guess), &mut sent);
                                 break;
                             }
@@ -138,7 +140,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, window : &Wi
                         None => () 
                     }
 
-                    send_message(format!("Time = {:.3} ms", (precise_time_s() - timestamp) * 1000.0));
+                    send_message(format!("Time = {0:.3} ms", (precise_time_s() - timestamp) * 1000.0));
                     prefix += num_threads;
                 }            
 
@@ -175,13 +177,18 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, window : &Wi
                         // If a thread submitted a work result, it is no longer active
                         threads_finished += 1
                     }
-                    else if global_result.is_none() {
-                        window.printw(message);
-                        window.refresh();
+                    else if debug && global_result.is_none() {
+                        print!("\r{}", message);
                     }
                 },
                 _ => ()
             }
+        }
+
+        // Print first newline so that previous carriage return is completed
+        // Print additional newline that future output appears separately
+        if debug {
+            println!("\n");
         }
 
         global_result 

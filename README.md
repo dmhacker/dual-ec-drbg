@@ -19,5 +19,3 @@ cargo run -- --help
 for additional help. By default, the program uses the P-256 curve and randomly generated seed and backdoor values. All numbers in the program are displayed in hexadecimal. 
 
 The demo was tested on a Surface Book 2 running an 8th-gen i7-8650 GHz mobile processor (8 cores). In the worst case scenario, when the truncated bits were in the 60000's, the program took about 25 seconds to generate the DRBG's state. You can provide the `--release` flag to cargo to build an optimized version of the program that reduces runtime by about 20% at the cost of additional compilation time.
-
-_Please note that this demo uses [pancurses](https://github.com/ihalila/pancurses), a cross-compatible curses library supporting terminals in both Unix and Windows. It's recommended you run the demo in a large terminal window, so that some of the elliptic curve numbers don't wrap around the edge of the screen or get cut off._

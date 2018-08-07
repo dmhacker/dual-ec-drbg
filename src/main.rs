@@ -3,7 +3,6 @@ extern crate rand;
 extern crate crossbeam;
 extern crate time;
 extern crate num_cpus;
-extern crate pancurses;
 extern crate argparse;
 #[macro_use]
 extern crate lazy_static;
@@ -94,60 +93,35 @@ fn main() {
     let mut prng = DualECDRBG::new(&curve, &Point::from(&p), &Point::from(&q), &seed);
 
     // Create a curses window in the terminal for displaying all of this information
-    let window = pancurses::initscr();
-    window.printw(format!("Curve = \t{}\n", curve.name));
-    window.printw(format!("Seed = \t\t{}\n", seed.to_string_radix(16)));
-    window.printw(format!("d = \t\t{}\n", d.clone().to_string_radix(16)));
-    window.printw(format!("Q = \t\t{}\n", q));
-    window.printw(format!("dQ = \t\t{}\n", &q * &d));
-    window.printw(format!("P = \t\t{}\n", p));
-    window.hline('-', 10000);
-    window.mvprintw(window.get_cur_y() + 1, 0, "Alice is generating some output ...");
-    window.refresh();
-  
+    println!("Curve = \t{}", curve.name);
+    println!("Seed = \t\t{}", seed.to_string_radix(16));
+    println!("d = \t\t{}", d.clone().to_string_radix(16));
+    println!("Q = \t\t{}", q);
+    println!("dQ = \t\t{}", &q * &d);
+    println!("P = \t\t{}\n", p);
+
     // Generate and display two successive outputs from the DRBG
     let outsize = prng.outsize + 16;
     let output = prng.next_bits(outsize);
-    window.deleteln();
-    window.mvprintw(window.get_cur_y(), 0, format!("Alice generated output {} ({} bytes).\n", output.to_string_radix(16), outsize / 8));
-    window.printw(format!("Eve has observed this output and will guess Alice's state.\n"));
-    window.refresh();
-
-    // Draw a dividing line between the info window at the top and the debug subwindow
-    let (my, mx) = window.get_max_yx();
-    let (cy, cx) = window.get_cur_yx();
-    let begy = cy + 7; 
-    let nlines = my - begy;
-    window.mv(begy - 1, cx);
-    window.hline('-', 10000);
-    window.mv(cy, cx);
-    window.refresh();
-
-    // Generate the subwindow; this is where the child threads post computational debug information 
-    let subwindow = window.derwin(nlines, mx, begy, cx).unwrap();
-    subwindow.setscrreg(0, nlines);
-    subwindow.scrollok(true);
+    println!("Alice generated output {} ({} bytes).", output.to_string_radix(16), outsize / 8);
+    println!("Eve has observed this output and will guess Alice's state.");
 
     // Do prediction and measure time it took
     let timestamp = time::precise_time_s();
-    let prediction = predict(&prng, &d, &output, &subwindow);
-    window.printw(format!("Eve spent {} seconds calculating Alice's state.\n", time::precise_time_s() - timestamp));
+    let prediction = predict(&prng, &d, &output, true);
+    println!("Eve spent {} seconds calculating Alice's state.", time::precise_time_s() - timestamp);
 
     match prediction {
         Some(state) => {
-            window.printw(format!("Eve guessed Alice's state as {}.\n", &state.to_string_radix(16)));
+            println!("Eve guessed Alice's state as {}.", &state.to_string_radix(16));
         },
         None => {
-            window.printw(format!("Eve was not able to guess Alice's state.\n")) ;
+            println!("Eve was not able to guess Alice's state.");
         }
     } 
 
     // Delegate state printing to the PRNG; the state variable is private so the predictor cannot cheat
-    prng.print_state(&"Alice's actual state is ", &".\n", Some(&window));
-    window.printw("\nPress any key to exit.\n");
-    window.getch();
-
-    pancurses::endwin();
+    prng.print_state(&"Alice's actual state is ", &".");
 }
 
 #[cfg(test)]

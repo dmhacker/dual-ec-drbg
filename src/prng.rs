@@ -2,7 +2,6 @@ use std::rc::Rc;
 use rug::{Integer, Assign};
 use curves::Curve;
 use points::{Point, CurvePoint};
-use pancurses::Window;
 
 pub struct DualECDRBG {
     pub curve : Curve,
@@ -82,14 +81,7 @@ impl DualECDRBG {
         return result;
     }
 
-    pub fn print_state(&self, prefix : &str, suffix : &str, window : Option<&Window>) {
-        match window {
-            Some(window) => {
-                window.printw(format!("{}{}{}", prefix, self.state.to_string_radix(16), suffix));
-            },
-            None => {
-                println!("{}{}{}", prefix, self.state.to_string_radix(16), suffix);
-            }
-        };
+    pub fn print_state(&self, prefix : &str, suffix : &str) {
+        println!("{}{}{}", prefix, self.state.to_string_radix(16), suffix);
     }
 }
