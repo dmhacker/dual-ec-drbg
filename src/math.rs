@@ -1,23 +1,15 @@
 use rug::{Integer, Assign};
 use rand::Rng;
 
-lazy_static! {
-    static ref ONE : Integer = Integer::from(1);
-    static ref TWO : Integer = Integer::from(2);
-    static ref TWO_POW_2 : Integer = Integer::from(Integer::u_pow_u(2, 2)); 
-    static ref TWO_POW_4 : Integer = Integer::from(Integer::u_pow_u(2, 4)); 
-    static ref TWO_POW_8 : Integer = Integer::from(Integer::u_pow_u(2, 8)); 
-    static ref TWO_POW_16 : Integer = Integer::from(Integer::u_pow_u(2, 16)); 
-    static ref TWO_POW_32 : Integer = Integer::from(Integer::u_pow_u(2, 32)); 
-    static ref TWO_POW_94 : Integer = Integer::from(Integer::u_pow_u(2, 94)); 
-    static ref TWO_POW_96 : Integer = Integer::from(Integer::u_pow_u(2, 96)); 
-    static ref P256_P : Integer = Integer::from_str_radix("ffffffff00000001000000000000000000000000ffffffffffffffffffffffff", 16).unwrap();
-}
-
 pub trait ModExtensions {
     fn modulo(&self, n : &Integer) -> Integer;
     fn modulo_mut(&mut self, n : &Integer);
     fn sqrt_mod(&self, n : &Integer) -> Option<Integer>;
+}
+
+lazy_static! {
+    static ref ONE : Integer = Integer::from(1);
+    static ref TWO : Integer = Integer::from(2);
 }
 
 impl ModExtensions for Integer {
