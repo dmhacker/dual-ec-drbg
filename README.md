@@ -5,7 +5,6 @@ This is an interactive proof-of-concept of the Dual_EC_DRBG backdoor. It uses an
 This demonstration shows how a [Shumlow-Ferguson attack](http://rump2007.cr.yp.to/15-shumow.pdf) could be executed to recover the internal state of the pseudorandom number generator after the attacker sees as little as 32 bytes. It attempts to adhere as closely as possible to the actual NIST specifications of the algorithm. However, because finding the actual backdoor used in the paper is computationally hard and would require solving the ECDLP, the demonstration uses its own version of point Q, and you can choose the backdoor d, such that `dQ = P`.
 
 In order to run the demonstration, clone the repository and run `cargo run`.
-```
 
 You can choose what curve, backdoor, and seed to use by passing them as additional arguments. Use
 ```
