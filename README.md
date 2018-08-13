@@ -6,10 +6,6 @@ This demonstration shows how a [Shumlow-Ferguson attack](http://rump2007.cr.yp.t
 
 In order to run the demonstration, clone the repository and run `cargo run`.
 
-You can choose what curve, backdoor, and seed to use by passing them as additional arguments. Use
-```
-cargo run -- --help
-```
-for additional help. By default, the program uses the P-256 curve and randomly generated seed and backdoor values. All numbers in the program are displayed in hexadecimal. 
+You can choose what curve, backdoor, and seed to use by passing them as additional arguments. Use `cargo run -- --help` for additional help. By default, the program uses the P-256 curve and randomly generated seed and backdoor values. All numbers in the program are displayed in hexadecimal. 
 
 The demo was tested on a Surface Book 2 running an 8th-gen i7-8650 GHz mobile processor (8 cores). In the worst case scenario, when the truncated bits were in the 60000's, the program took about 25 seconds to generate the DRBG's state. You can provide the `--release` flag to cargo to build an optimized version of the program that reduces runtime by about 20% at the cost of additional compilation time.
