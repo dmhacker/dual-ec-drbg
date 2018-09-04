@@ -21,16 +21,10 @@ lazy_static! {
 }
 
 pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool) -> Option<Integer> {
-    // Wrap in a crossbeam scope, so that we can use clones of the certain thread-safe formal parameters
     crossbeam_scope(|scope| {
-        // Open a channel for communicating debug messages & work results
         let (tx, rx) = mpsc::channel();
-
-        // Use the same number of threads as processors on the machine
         let num_threads = num_cpus_get();
-
-        // Use a global counter to tell child threads to halt computation
-        let global_finished = Arc::new(Mutex::new(false));
+        let halt_counter = Arc::new(Mutex::new(false));
 
         // Print debug information title
         if debug {
@@ -38,9 +32,8 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
         }
 
         for thread_id in 0..num_threads {
-            // Clone references to channel and halt counter
             let tx = tx.clone(); 
-            let global_finished = global_finished.clone();
+            let halt_counter = halt_counter.clone();
 
             scope.spawn(move || {
                 // This is set to true if the thread has sent a work result to the main thread
@@ -51,7 +44,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
                     try_and_discard!(tx.send(
                         (work_result, "".to_string())
                     ));
-                    *sent_counter = false;
+                    *sent_counter = true;
                 };
 
                 // Each thread has its own version of the curve and Q
@@ -69,14 +62,14 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
                 // The first DRBG output is the upper `outsize` bits without the last 16 bits
                 let output1 = Integer::from(output >> 16);
 
-                // 
+                // Compute part of output 2's mask
                 let mut output2_mask = Integer::from(Integer::u_pow_u(2, 16));
                 output2_mask -= 1;
 
-                // The second DRBG output is the  
+                // The second DRBG output constitutes the lower 16 bits
                 let output2 = Integer::from(output & &output2_mask);
 
-                //
+                // Transform the mask for later use
                 output2_mask <<= prng.outsize - 16;
 
                 while prefix < 65536 {
@@ -93,7 +86,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
 
                     // Check if we should halt by unlocking the guarded global counter
                     {
-                        let halt = global_finished.lock().unwrap();
+                        let halt = halt_counter.lock().unwrap();
                         if *halt {
                             break;
                         }
@@ -167,8 +160,8 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
                                 // Set the global result to be that child's work result 
                                 global_result = Some(ret);
 
-                                // Mark that all child threads should halt 
-                                let mut halt = global_finished.lock().unwrap();
+                                // Any other active child threads should halt 
+                                let mut halt = halt_counter.lock().unwrap();
                                 *halt = true;
                             },
                             None => () 
