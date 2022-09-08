@@ -1,16 +1,16 @@
+use crate::points::Point;
 use rug::Integer;
-use points::Point;
 
 // A Curve is defined as a collection of parameters representing an elliptic curve
 #[derive(Clone, Debug, PartialEq)]
 pub struct Curve {
-    pub name: String,               // Name of the curve
-    pub bitsize: u32,               // Level of security offered by the curve 
-    pub p: Integer,                 // Order of the finite field that the curve belongs to (mod p)
-    pub n: Integer,                 // Order of the elliptic curve group
-    pub a: Integer,                 // a parameter in the curve equation
-    pub b: Integer,                 // b parameter in the curve equation
-    pub g: Point                    // Generator (base) point
+    pub name: String, // Name of the curve
+    pub bitsize: u32, // Level of security offered by the curve
+    pub p: Integer,   // Order of the finite field that the curve belongs to (mod p)
+    pub n: Integer,   // Order of the elliptic curve group
+    pub a: Integer,   // a parameter in the curve equation
+    pub b: Integer,   // b parameter in the curve equation
+    pub g: Point,     // Generator (base) point
 }
 
 impl Curve {
@@ -18,14 +18,34 @@ impl Curve {
         Curve {
             name: String::from("P-256"),
             bitsize: 256,
-            p: Integer::from_str_radix("ffffffff00000001000000000000000000000000ffffffffffffffffffffffff", 16).unwrap(),
-            n: Integer::from_str_radix("ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551", 16).unwrap(),
-            a: Integer::from(-3), 
-            b: Integer::from_str_radix("5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b", 16).unwrap(),
+            p: Integer::from_str_radix(
+                "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff",
+                16,
+            )
+            .unwrap(),
+            n: Integer::from_str_radix(
+                "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551",
+                16,
+            )
+            .unwrap(),
+            a: Integer::from(-3),
+            b: Integer::from_str_radix(
+                "5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b",
+                16,
+            )
+            .unwrap(),
             g: Point {
-                x: Integer::from_str_radix("6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296", 16).unwrap(),
-                y: Integer::from_str_radix("4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5", 16).unwrap() 
-            }
+                x: Integer::from_str_radix(
+                    "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+                    16,
+                )
+                .unwrap(),
+                y: Integer::from_str_radix(
+                    "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+                    16,
+                )
+                .unwrap(),
+            },
         }
     }
 
@@ -35,7 +55,7 @@ impl Curve {
             bitsize: 384,
             p: Integer::from_str_radix("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff", 16).unwrap(),
             n: Integer::from_str_radix("ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf581a0db248b0a77aecec196accc52973", 16).unwrap(),
-            a: Integer::from(-3), 
+            a: Integer::from(-3),
             b: Integer::from_str_radix("b3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875ac656398d8a2ed19d2a85c8edd3ec2aef", 16).unwrap(),
             g: Point {
                 x: Integer::from_str_radix("aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab7", 16).unwrap(),

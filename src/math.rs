@@ -1,35 +1,34 @@
-use rug::{Integer, Assign};
 use rand::Rng;
+use rug::{Assign, Integer};
 
-pub trait ModExtensions {
-    fn modulo(&self, n : &Integer) -> Integer;
-    fn modulo_mut(&mut self, n : &Integer);
-    fn sqrt_mod(&self, n : &Integer) -> Option<Integer>;
+pub trait ModuloExt {
+    fn modulo(&self, n: &Integer) -> Integer;
+    fn modulo_mut(&mut self, n: &Integer);
+    fn sqrt_mod(&self, n: &Integer) -> Option<Integer>;
 }
 
 lazy_static! {
-    static ref ONE : Integer = Integer::from(1);
-    static ref TWO : Integer = Integer::from(2);
+    static ref ONE: Integer = Integer::from(1);
+    static ref TWO: Integer = Integer::from(2);
 }
 
-impl ModExtensions for Integer {
-
-    // Computes a new integer r, such that r = self mod n 
-    fn modulo(&self, n : &Integer) -> Integer {
+impl ModuloExt for Integer {
+    // Computes a new integer r, such that r = self mod n
+    fn modulo(&self, n: &Integer) -> Integer {
         let mut r = self.clone();
         r.pow_mod_mut(&ONE, n).unwrap();
         r
     }
 
     // Computes self = self mod n
-    fn modulo_mut(&mut self, n : &Integer) {
+    fn modulo_mut(&mut self, n: &Integer) {
         self.pow_mod_mut(&ONE, n).unwrap();
     }
 
     // Computes a new integer r, such that r^2 = self (mod p)
     // The modulus p must be a prime number for this to work
-    fn sqrt_mod(&self, p : &Integer) -> Option<Integer> {
-        // Big number implementation of the Tonelli-Shanks algorithm 
+    fn sqrt_mod(&self, p: &Integer) -> Option<Integer> {
+        // Big number implementation of the Tonelli-Shanks algorithm
         let mut tmp = Integer::from(p - 1);
         tmp >>= 1;
         let mut buffer = self.clone();
@@ -38,12 +37,12 @@ impl ModExtensions for Integer {
             return None;
         }
 
-        let mut q = Integer::from(p - 1); 
-        let mut ss = Integer::from(0); 
+        let mut q = Integer::from(p - 1);
+        let mut ss = Integer::from(0);
 
         tmp.assign(&q & 1);
         while tmp == 0 {
-            ss += 1; 
+            ss += 1;
             q >>= 1;
             tmp.assign(&q & 1);
         }
@@ -61,7 +60,7 @@ impl ModExtensions for Integer {
         tmp >>= 1;
         buffer.assign(p - 1);
         while z.clone().pow_mod(&tmp, &p).unwrap() == buffer {
-            z += 1; 
+            z += 1;
         }
         let mut c = z.pow_mod(&q, p).unwrap();
         tmp.assign(&q + 1);
@@ -76,7 +75,7 @@ impl ModExtensions for Integer {
             if t == 1 {
                 return Some(r);
             }
-            let mut i = Integer::new(); 
+            let mut i = Integer::new();
             let mut zz = t.clone();
             tmp.assign(&m - 1);
             while zz != 1 && i < tmp {
@@ -98,31 +97,30 @@ impl ModExtensions for Integer {
             t *= &c;
             t.modulo_mut(p);
             m = i.clone();
-        }    
+        }
     }
 }
 
-pub trait RandExtensions {
-    fn gen_uint(&mut self, bits : u32) -> Integer;
+pub trait RandExt {
+    fn gen_uint(&mut self, bits: u32) -> Integer;
 }
 
-impl<R: Rng> RandExtensions for R {
+impl<R: Rng> RandExt for R {
     // Computes a random large integer that has `bits` number of bits
-    fn gen_uint(&mut self, bits : u32) -> Integer {
+    fn gen_uint(&mut self, bits: u32) -> Integer {
         let mut bits_remaining = bits;
         let mut bitmask = Integer::new();
         let mut randint = Integer::new();
 
         while bits_remaining > 0 {
             // Generate 32 random bits
-            let mut generated : u32 = self.gen();
+            let mut generated: u32 = self.gen();
 
             // Compute the exact amount of bits needed for the final result
             // If more bits are needed, set the max as 32
             let amount = if bits_remaining > 32 {
                 32
-            }
-            else {
+            } else {
                 bits_remaining
             };
 
@@ -131,7 +129,7 @@ impl<R: Rng> RandExtensions for R {
             bitmask.assign(Integer::u_pow_u(2, amount as u32));
             bitmask -= 1;
 
-            // Truncate the generated bits to the amount we need 
+            // Truncate the generated bits to the amount we need
             generated &= bitmask.to_u32().unwrap();
 
             // Shift the current bits over and add the newly generated ones

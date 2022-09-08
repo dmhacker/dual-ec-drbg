@@ -1,26 +1,28 @@
+use crate::math::ModuloExt;
+use crate::points::CurvePoint;
+use crate::prng::DualECDRBG;
 use rug::{Assign, Integer};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, mpsc};
-use time::precise_time_s;
-use points::CurvePoint;
-use prng::DualECDRBG;
-use math::ModExtensions;
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Instant;
 
-use num_cpus::get as num_cpus_get;
 use crossbeam::scope as crossbeam_scope;
+use num_cpus::get as num_cpus_get;
 
 macro_rules! try_and_discard {
-    ($e:expr) => (match $e {
-        Ok(_) => (),
-        Err(_) => ()
-    });
+    ($e:expr) => {
+        match $e {
+            Ok(_) => (),
+            Err(_) => (),
+        }
+    };
 }
 
 lazy_static! {
-    static ref THREE : Integer = Integer::from(3);
+    static ref THREE: Integer = Integer::from(3);
 }
 
-pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool) -> Option<Integer> {
+pub fn predict(prng: &DualECDRBG, d: &Integer, output: &Integer, debug: bool) -> Option<Integer> {
     crossbeam_scope(|scope| {
         let (tx, rx) = mpsc::channel();
         let num_threads = num_cpus_get();
@@ -32,25 +34,23 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
         }
 
         for thread_id in 0..num_threads {
-            let tx = tx.clone(); 
+            let tx = tx.clone();
             let halt_counter = halt_counter.clone();
 
-            scope.spawn(move || {
+            scope.spawn(move |_| {
                 // This is set to true if the thread has sent a work result to the main thread
                 let mut sent = false;
 
                 // Closure for sending work result to main thread
                 let send_result = |work_result: Option<Integer>, sent_counter: &mut bool| {
-                    try_and_discard!(tx.send(
-                        (work_result, "".to_string())
-                    ));
+                    try_and_discard!(tx.send((work_result, "".to_string())));
                     *sent_counter = true;
                 };
 
                 // Each thread has its own version of the curve and Q
                 // This way, we don't have to use slow atomic references to access the same area of memory
                 let curve = Rc::new(prng.curve.clone());
-                let q = CurvePoint::from(&prng.q, &curve); 
+                let q = CurvePoint::from(&prng.q, &curve);
 
                 // Thread is responsible for all lost bits `prefix` such that prefix = thread_id mod num_threads
                 let mut prefix = thread_id;
@@ -60,11 +60,11 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
                 let mut buffer = Integer::new();
 
                 // The first DRBG output is the upper `outsize` bits without the last 16 bits
-                let output1 = Integer::from(output >> 16);
+                let output1 = Integer::from(output >> 16 as u32);
 
                 // Compute part of output 2's mask
                 let mut output2_mask = Integer::from(Integer::u_pow_u(2, 16));
-                output2_mask -= 1;
+                output2_mask -= 1 as i32;
 
                 // The second DRBG output constitutes the lower 16 bits
                 let output2 = Integer::from(output & &output2_mask);
@@ -74,15 +74,18 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
 
                 while prefix < 65536 {
                     // Closure for sending debug message to main thread
-                    let message_prefix = format!("[Thread {}] [Prefix {:04x} ({:05})]", thread_id, prefix, prefix);
+                    let message_prefix = format!(
+                        "[Thread {}] [Prefix {:04x} ({:05})]",
+                        thread_id, prefix, prefix
+                    );
                     let send_message = |debug_message: String| {
-                        try_and_discard!(tx.send(
-                            (None, format!("{}: {}      ", message_prefix, debug_message))
-                        ));
+                        try_and_discard!(
+                            tx.send((None, format!("{}: {}      ", message_prefix, debug_message)))
+                        );
                     };
 
                     // Measure time for each prefix computation
-                    let timestamp = precise_time_s();
+                    let timestamp = Instant::now();
 
                     // Check if we should halt by unlocking the guarded global counter
                     {
@@ -112,7 +115,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
                             let rq = CurvePoint {
                                 x: rqx,
                                 y: rqy,
-                                curve: Rc::clone(&curve)
+                                curve: Rc::clone(&curve),
                             };
 
                             // The current state of the PRNG equals rP = r(dQ) = d(rQ)
@@ -125,17 +128,17 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
 
                             // Check to make sure the outputs match up
                             if output2_guess == output2 {
-                                send_message(format!("Time = {0:.3} ms", (precise_time_s() - timestamp) * 1000.0));
+                                send_message(format!("Time = {:?}", Instant::now() - timestamp));
                                 send_result(Some(state_guess), &mut sent);
                                 break;
                             }
-                        },
-                        None => () 
+                        }
+                        None => (),
                     }
 
-                    send_message(format!("Time = {0:.3} ms", (precise_time_s() - timestamp) * 1000.0));
+                    send_message(format!("Time = {:?}", Instant::now() - timestamp));
                     prefix += num_threads;
-                }            
+                }
 
                 // If this thread found nothing, send an empty work result to the main thread
                 if !sent {
@@ -157,24 +160,23 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
                     if message == "" {
                         match result {
                             Some(ret) => {
-                                // Set the global result to be that child's work result 
+                                // Set the global result to be that child's work result
                                 global_result = Some(ret);
 
-                                // Any other active child threads should halt 
+                                // Any other active child threads should halt
                                 let mut halt = halt_counter.lock().unwrap();
                                 *halt = true;
-                            },
-                            None => () 
+                            }
+                            None => (),
                         }
 
                         // If a thread submitted a work result, it is no longer active
                         threads_finished += 1
-                    }
-                    else if debug && global_result.is_none() {
+                    } else if debug && global_result.is_none() {
                         print!("\r{}", message);
                     }
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
 
@@ -184,8 +186,7 @@ pub fn predict(prng : &DualECDRBG, d : &Integer, output : &Integer, debug : bool
             println!("\n");
         }
 
-        global_result 
+        global_result
     })
+    .unwrap()
 }
-
-
