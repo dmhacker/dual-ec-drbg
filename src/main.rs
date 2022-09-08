@@ -7,16 +7,16 @@ extern crate rug;
 extern crate lazy_static;
 
 pub mod backdoor;
-pub mod curves;
+pub mod curve;
 pub mod math;
-pub mod points;
+pub mod point;
 pub mod prng;
 
 use argparse::{ArgumentParser, Store, StoreTrue};
 use backdoor::predict;
-use curves::Curve;
+use curve::Curve;
 use math::RandExt;
-use points::{CurvePoint, Point};
+use point::{CurvePoint, Point};
 use prng::DualECDRBG;
 use rug::Integer;
 use std::rc::Rc;
@@ -143,9 +143,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::curves::Curve;
+    use crate::curve::Curve;
     use crate::math::RandExt;
-    use crate::points::{CurvePoint, Point};
+    use crate::point::{CurvePoint, Point};
     use rand::thread_rng;
     use std::rc::Rc;
 

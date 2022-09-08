@@ -1,4 +1,4 @@
-use crate::points::Point;
+use crate::point::Point;
 use rug::Integer;
 
 // A Curve is defined as a collection of parameters representing an elliptic curve

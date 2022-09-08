@@ -1,31 +1,19 @@
 use crate::math::ModuloExt;
-use crate::points::CurvePoint;
+use crate::point::CurvePoint;
 use crate::prng::DualECDRBG;
 use rug::{Assign, Integer};
 use std::rc::Rc;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Instant;
 
-use crossbeam::scope as crossbeam_scope;
-use num_cpus::get as num_cpus_get;
-
-macro_rules! try_and_discard {
-    ($e:expr) => {
-        match $e {
-            Ok(_) => (),
-            Err(_) => (),
-        }
-    };
-}
-
 lazy_static! {
     static ref THREE: Integer = Integer::from(3);
 }
 
 pub fn predict(prng: &DualECDRBG, d: &Integer, output: &Integer, debug: bool) -> Option<Integer> {
-    crossbeam_scope(|scope| {
+    crossbeam::scope(|scope| {
         let (tx, rx) = mpsc::channel();
-        let num_threads = num_cpus_get();
+        let num_threads = num_cpus::get();
         let halt_counter = Arc::new(Mutex::new(false));
 
         // Print debug information title
@@ -43,7 +31,7 @@ pub fn predict(prng: &DualECDRBG, d: &Integer, output: &Integer, debug: bool) ->
 
                 // Closure for sending work result to main thread
                 let send_result = |work_result: Option<Integer>, sent_counter: &mut bool| {
-                    try_and_discard!(tx.send((work_result, "".to_string())));
+                    tx.send((work_result, "".to_string())).unwrap();
                     *sent_counter = true;
                 };
 
@@ -79,9 +67,7 @@ pub fn predict(prng: &DualECDRBG, d: &Integer, output: &Integer, debug: bool) ->
                         thread_id, prefix, prefix
                     );
                     let send_message = |debug_message: String| {
-                        try_and_discard!(
-                            tx.send((None, format!("{}: {}      ", message_prefix, debug_message)))
-                        );
+                        tx.send((None, format!("{}: {}      ", message_prefix, debug_message))).unwrap()
                     };
 
                     // Measure time for each prefix computation

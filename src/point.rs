@@ -1,4 +1,4 @@
-use crate::curves::Curve;
+use crate::curve::Curve;
 use crate::math::ModuloExt;
 use rug::{Assign, Integer};
 use std::fmt::{Display, Formatter, Result};

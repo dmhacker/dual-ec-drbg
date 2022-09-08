@@ -1,5 +1,5 @@
-use crate::curves::Curve;
-use crate::points::{CurvePoint, Point};
+use crate::curve::Curve;
+use crate::point::{CurvePoint, Point};
 use rug::{Assign, Integer};
 use std::rc::Rc;
 
